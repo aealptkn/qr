@@ -14,6 +14,7 @@
 <script src="./tesseract.min.js"></script>
 <link rel="stylesheet" href="./cropper.min.css" />
 <script src="./cropper.min.js"></script>
+<script src="./qrcode.min.js"></script>
 
 <style>
 body {
@@ -193,6 +194,70 @@ video {
 .controls button:active {
   opacity: 0.7;
 }
+
+/* KARTVİZİT MODAL STİLİ */
+#qrGeneratorContainer {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+    z-index: 2000;
+    flex-direction: column;
+    overflow-y: auto;
+}
+.qr-header {
+    padding: 20px;
+    background: #1c1c1e;
+    text-align: center;
+    border-bottom: 1px solid #38383a;
+}
+.qr-display {
+    background: white;
+    padding: 20px;
+    margin: 20px auto;
+    border-radius: 10px;
+    width: 200px; height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.qr-form {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding-bottom: 100px;
+}
+.qr-form input {
+    padding: 12px;
+    background: #1c1c1e;
+    border: 1px solid #38383a;
+    color: white;
+    border-radius: 8px;
+    font-size: 16px;
+}
+.qr-close-btn {
+    position: absolute;
+    top: 15px; right: 15px;
+    background: #3a3a3c;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+}
+.save-qr-btn {
+    background: #0a84ff;
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
 </style>
 </head>
 
@@ -222,10 +287,31 @@ video {
   <button id="ocrBtn" title="OCR">📝</button>
   <button id="switchBtn" title="Kamera Çevir">🔄</button>
   <button id="flashBtn" title="Flash Aç/Kapat">⚡</button>
+  <button id="createQrBtn" title="Kartvizit Oluştur">🆔</button>
   <button id="clearBtn" title="Listeyi Temizle">🗑️</button>
 </div>
 
 <input type="file" id="ocrInput" accept="image/*" style="display: none;" />
+
+<div id="qrGeneratorContainer">
+    <div class="qr-header">
+        <h3>Kartvizit Oluştur</h3>
+        <button class="qr-close-btn" onclick="closeQrGenerator()">Kapat</button>
+    </div>
+    
+    <div class="qr-display" id="generatedQrCode"></div>
+
+    <div class="qr-form">
+        <input type="text" id="vName" placeholder="Ad Soyad" />
+        <input type="text" id="vTitle" placeholder="Ünvan / Meslek" />
+        <input type="text" id="vOrg" placeholder="Şirket Adı" />
+        <input type="tel" id="vPhone" placeholder="Telefon (Başına +90...)" />
+        <input type="email" id="vEmail" placeholder="E-Posta Adresi" />
+        <input type="text" id="vAddress" placeholder="Adres / Web Sitesi" />
+        
+        <button class="save-qr-btn" onclick="generateAndSaveQr()">💾 Bilgileri Kaydet ve QR Oluştur</button>
+    </div>
+</div>
 
 <div id="cropContainer">
     <div id="cropImageWrapper">

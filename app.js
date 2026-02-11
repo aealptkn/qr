@@ -5,6 +5,7 @@ const serialBtn = document.getElementById("serialBtn");
 const ocrBtn = document.getElementById("ocrBtn");
 const switchBtn = document.getElementById("switchBtn"); 
 const flashBtn = document.getElementById("flashBtn");
+const createQrBtn = document.getElementById("createQrBtn");
 const clearBtn = document.getElementById("clearBtn");
 const resultList = document.getElementById("resultList");
 const scanArea = document.getElementById("scanArea");
@@ -38,6 +39,8 @@ const codeReader = new ZXing.BrowserMultiFormatReader();
 // DİKKAT: Eski Canvas oluşturma (scanCanvas) bölümü senin çalışan mantığın lehine silindi.
 
 // --- BUTON OLAYLARI ---
+createQrBtn.onclick = openQrGenerator;
+
 if (navigator.share) {
     miniShareBtn.style.display = "inline-block";
 }
@@ -114,11 +117,11 @@ doCropBtn.addEventListener('click', async () => {
         langPath:'./'
       });
       const text = result.data.text.trim();
-      if(text) addResult("--- OCR SONUCU ---\n"+text);
+      if(text) addResult("Okunan Metin\n"+text);
       else addResult("Metin tespit edilemedi.");
       beep.play().catch(()=>{}); navigator.vibrate?.(100);
     } catch(err) {
-      addResult("OCR Hatası: "+err.message);
+      addResult("Metin okuma hatası: "+err.message);
     }
   },'image/jpeg',0.95);
 });
@@ -236,6 +239,7 @@ async function bagimliliklariKontrolEt() {
         './worker.min.js',
         './tesseract-core.wasm.js',
         './tesseract-core.wasm', // EKSİK OLAN KRİTİK DOSYA EKLENDİ
+        './qrcode.min.js',
         './tur.traineddata.gz'
     ];
 
@@ -278,3 +282,74 @@ window.addEventListener('load', () => {
     // Kameranın açılışını engellememesi için 1.5 saniye gecikmeli çalıştırıyoruz
     setTimeout(bagimliliklariKontrolEt, 1500);
 });
+
+// --- KARTVİZİT (QR GENERATOR) LOGİĞİ ---
+let qrCodeObj = null;
+
+function openQrGenerator() {
+    stopCamera(); // Kamera arkada çalışmasın
+    document.getElementById("qrGeneratorContainer").style.display = "flex";
+    
+    // Hafızadan eski bilgileri getir
+    const savedData = JSON.parse(localStorage.getItem("myCardData") || "{}");
+    document.getElementById("vName").value = savedData.name || "";
+    document.getElementById("vTitle").value = savedData.title || "";
+    document.getElementById("vOrg").value = savedData.org || "";
+    document.getElementById("vPhone").value = savedData.phone || "";
+    document.getElementById("vEmail").value = savedData.email || "";
+    document.getElementById("vAddress").value = savedData.address || "";
+
+    // Eğer veri varsa açılışta direkt QR göster
+    if(savedData.name) {
+        generateAndSaveQr();
+    }
+}
+
+function closeQrGenerator() {
+    document.getElementById("qrGeneratorContainer").style.display = "none";
+}
+
+function generateAndSaveQr() {
+    const name = document.getElementById("vName").value.trim();
+    const title = document.getElementById("vTitle").value.trim();
+    const org = document.getElementById("vOrg").value.trim();
+    const phone = document.getElementById("vPhone").value.trim();
+    const email = document.getElementById("vEmail").value.trim();
+    const address = document.getElementById("vAddress").value.trim();
+
+    if (!name) { alert("Lütfen en azından bir isim girin."); return; }
+
+    // Verileri tarayıcı hafızasına kaydet
+    const cardData = { name, title, org, phone, email, address };
+    localStorage.setItem("myCardData", JSON.stringify(cardData));
+
+    // vCard (VCF) Formatını Oluştur
+    // Bu format sayesinde tarayan kişi "Rehbere Ekle" diyebilir
+    let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
+    vCard += `N:${name};;;\n`;
+    vCard += `FN:${name}\n`;
+    if(org) vCard += `ORG:${org}\n`;
+    if(title) vCard += `TITLE:${title}\n`;
+    if(phone) vCard += `TEL:${phone}\n`;
+    if(email) vCard += `EMAIL:${email}\n`;
+    if(address) vCard += `ADR:;;${address};;;;\n`;
+    vCard += `END:VCARD`;
+
+    // Önceki QR varsa temizle
+    const qrContainer = document.getElementById("generatedQrCode");
+    qrContainer.innerHTML = "";
+
+    // Yeni QR oluştur (qrcode.js kütüphanesini kullanır)
+    try {
+        qrCodeObj = new QRCode(qrContainer, {
+            text: vCard,
+            width: 180,
+            height: 180,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.M
+        });
+    } catch(e) {
+        alert("QR Kütüphanesi (qrcode.min.js) eksik! Lütfen klasöre ekleyin.");
+    }
+}
