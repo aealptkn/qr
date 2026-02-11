@@ -26,7 +26,7 @@ body {
 #camera-container {
   position: relative;
   width: 100%;
-  max-height: 45vh;
+  max-height: 55vh;
   overflow: hidden;
 }
 
@@ -51,7 +51,7 @@ video {
   box-sizing: border-box;
 }
 
-/* YENİ: Zoom Çubuğu Konteyneri */
+/* Zoom Çubuğu */
 #zoomContainer {
   display: none;
   background: #1c1c1e;
@@ -69,8 +69,9 @@ video {
   width: 100%;
 }
 
+/* Sonuç alanı */
 #resultList {
-  height: 25vh;
+  height: 20vh;
   overflow-y: auto;
   background: #000; 
   padding: 10px;
@@ -90,38 +91,6 @@ video {
   text-decoration: none;
 }
 
-.controls {
-  display: flex;
-  flex-wrap: wrap; /* Butonların alt satıra geçmesine izin ver */
-  justify-content: space-around;
-  padding: 10px;
-  background: #1c1c1e; 
-  padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
-}
-
-button {
-  flex: 1 1 30%; /* Butonların ekrana daha iyi yayılması için */
-  margin: 4px; 
-  padding: 12px 2px; 
-  font-size: 14px;
-  font-weight: 600; 
-  border: none;
-  border-radius: 12px; 
-  background: #0a84ff; 
-  color: white;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-button:active {
-  opacity: 0.7; 
-}
-
-button.secondary {
-  background: #3a3a3c; 
-  color: #ffffff;
-}
-
 .info {
   text-align: center;
   font-size: 13px;
@@ -129,6 +98,7 @@ button.secondary {
   color: #8e8e93; 
 }
 
+/* Cropper */
 #cropContainer {
   display: none; 
   position: fixed;
@@ -165,6 +135,37 @@ button.secondary {
 .cropper-modal { opacity: 0.8; }
 .cropper-view-box, .cropper-face { outline: 2px solid #0a84ff; }
 .cropper-point { background-color: #0a84ff; }
+
+/* --------------------------- */
+/* Butonlar: ikonlu, en alt, tek sıra */
+.controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  padding: 5px 0;
+  background: rgba(28, 28, 30, 0.9); 
+  z-index: 1000;
+}
+
+.controls button {
+  flex: 1;
+  margin: 0 2px;
+  padding: 8px 0;
+  font-size: 20px; /* Ekranda 2 harf yüksekliğinde */
+  border: none;
+  border-radius: 10px;
+  background: #0a84ff;
+  color: white;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.controls button:active {
+  opacity: 0.7;
+}
 </style>
 </head>
 
@@ -185,11 +186,13 @@ button.secondary {
 
 <div id="resultList"></div>
 
+<!-- Butonlar: ikonlu ve tek sıra -->
 <div class="controls">
-  <button id="startBtn">QR-Barkod</button>
-  <button id="serialBtn" class="secondary">Seri</button>
-  <button id="ocrBtn" class="secondary">Ocr</button>
-  <button id="switchBtn" class="secondary">Çevir</button> <button id="flashBtn" class="secondary">Flash</button>
+  <button id="startBtn" title="QR / Barkod Tarama">🔍</button>
+  <button id="serialBtn" title="Seri Tarama">📋</button>
+  <button id="ocrBtn" title="OCR">📝</button>
+  <button id="switchBtn" title="Kamera Çevir">🔄</button>
+  <button id="flashBtn" title="Flash Aç/Kapat">⚡</button>
 </div>
 
 <input type="file" id="ocrInput" accept="image/*" style="display: none;" />
