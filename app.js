@@ -108,7 +108,7 @@ doCropBtn.addEventListener('click', () => {
       const result = await Tesseract.recognize(blob, 'tur', {
         logger: m => console.log(m),
         workerPath: './worker.min.js',
-        corePath: './',
+        corePath: './tesseract-core.wasm.js',
         langPath: './'
       });
 
