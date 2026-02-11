@@ -308,7 +308,7 @@ function openQrGenerator() {
 
     // Eğer veri varsa açılışta direkt QR göster
     if(savedData.name) {
-        generateAndSaveQr();
+        setTimeout(generateAndSaveQr, 100);
     }
 }
 
@@ -324,8 +324,8 @@ function generateAndSaveQr() {
     const email = document.getElementById("vEmail").value.trim();
     const address = document.getElementById("vAddress").value.trim();
 
-    console.log("Container:", qrContainer);
-    console.log("QRCode:", QRCode);
+    //console.log("Container:", qrContainer);
+    //console.log("QRCode:", QRCode);
 
     if (!name) { alert("Lütfen en azından bir isim girin."); return; }
 
@@ -349,17 +349,20 @@ function generateAndSaveQr() {
     const qrContainer = document.getElementById("generatedQrCode");
     qrContainer.innerHTML = "";
 
-    // Yeni QR oluştur (qrcode.js kütüphanesini kullanır)
-    try {
-        qrCodeObj = new QRCode(qrContainer, {
-            text: vCard,
-            width: 180,
-            height: 180,
-            colorDark : "#000000",
-            colorLight : "#ffffff",
-            correctLevel : QRCode.CorrectLevel.M
-        });
-    } catch(e) {
-        alert("QR Kütüphanesi (qrcode.min.js) eksik! Lütfen klasöre ekleyin.");
-    }
+    // Modal render edilsin diye bir frame bekliyoruz
+    requestAnimationFrame(() => {
+        try {
+            qrCodeObj = new QRCode(qrContainer, {
+                text: vCard,
+                width: 180,
+                height: 180,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.M
+            });
+        } catch (e) {
+            console.error("QR HATASI:", e);
+            alert("QR oluşturulurken hata oluştu. Console'a bakın.");
+        }
+    });
 }
