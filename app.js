@@ -317,6 +317,8 @@ function closeQrGenerator() {
 }
 
 function generateAndSaveQr() {
+    const qrContainer = document.getElementById("generatedQrCode"); // Başta tanımla
+    qrContainer.innerHTML = ""; // Önceki QR varsa temizle
 
     const name = document.getElementById("vName").value.trim();
     const title = document.getElementById("vTitle").value.trim();
@@ -336,15 +338,12 @@ function generateAndSaveQr() {
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
     vCard += `N:${name};;;\n`;
     vCard += `FN:${name}\n`;
-    if(org) vCard += `ORG:${org}\n`;
-    if(title) vCard += `TITLE:${title}\n`;
-    if(phone) vCard += `TEL:${phone}\n`;
-    if(email) vCard += `EMAIL:${email}\n`;
-    if(address) vCard += `ADR:;;${address};;;;\n`;
+    if (org) vCard += `ORG:${org}\n`;
+    if (title) vCard += `TITLE:${title}\n`;
+    if (phone) vCard += `TEL:${phone}\n`;
+    if (email) vCard += `EMAIL:${email}\n`;
+    if (address) vCard += `ADR:;;${address};;;;\n`;
     vCard += `END:VCARD`;
-
-    const qrContainer = document.getElementById("generatedQrCode");
-    qrContainer.innerHTML = "";
 
     requestAnimationFrame(() => {
         try {
@@ -362,3 +361,4 @@ function generateAndSaveQr() {
         }
     });
 }
+
