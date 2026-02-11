@@ -1,148 +1,148 @@
 const video = document.getElementById("video");
 const startBtn = document.getElementById("startBtn");
 const serialBtn = document.getElementById("serialBtn");
-const ocrBtn = document.getElementById("ocrBtn");
 const switchBtn = document.getElementById("switchBtn");
 const flashBtn = document.getElementById("flashBtn");
 const clearBtn = document.getElementById("clearBtn");
 const resultList = document.getElementById("resultList");
 const copyAllBtn = document.getElementById("copyAllBtn");
 const shareBtn = document.getElementById("shareBtn");
-const ocrInput = document.getElementById("ocrInput");
 
-let stream, track;
-let scanning = false;
+let codeReader = new ZXing.BrowserMultiFormatReader();
+let currentDeviceId = null;
+let currentStream = null;
 let serialMode = false;
 let lastScan = "";
 let lastScanTime = 0;
 let torchOn = false;
-let currentFacingMode = "environment";
 
-const codeReader = new ZXing.BrowserMultiFormatReader();
 const beep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
 
-/* ---- BUTONLAR ---- */
+/* --- BAŞLAT --- */
 
-startBtn.onclick = () => { serialMode=false; startScanner(); };
-serialBtn.onclick = () => { serialMode=true; startScanner(); };
-switchBtn.onclick = () => { currentFacingMode = currentFacingMode==="environment"?"user":"environment"; startScanner(); };
-clearBtn.onclick = () => resultList.innerHTML="";
-flashBtn.onclick = toggleFlash;
-ocrBtn.onclick = ()=> ocrInput.click();
+startBtn.onclick = () => {
+  serialMode = false;
+  startScanner();
+};
 
-/* ---- TARAMA ---- */
+serialBtn.onclick = () => {
+  serialMode = true;
+  startScanner();
+};
+
+clearBtn.onclick = () => resultList.innerHTML = "";
+
+/* --- KAMERA LİSTELE --- */
 
 async function startScanner(){
 
-  stopCamera();
-  scanning=true;
-  lastScan="";
-  lastScanTime=0;
+  stopScanner();
 
   try{
-    stream = await navigator.mediaDevices.getUserMedia({
-      video:{
-        facingMode:currentFacingMode,
-        width:{ideal:1280},
-        height:{ideal:720}
-      }
-    });
+    const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
 
-    video.srcObject=stream;
-    track=stream.getVideoTracks()[0];
-    await video.play();
+    if(devices.length === 0){
+      alert("Kamera bulunamadı");
+      return;
+    }
 
-    codeReader.reset();
+    currentDeviceId = devices[devices.length - 1].deviceId; // genelde arka kamera
 
-    codeReader.decodeFromVideoElementContinuously(video,(result,err)=>{
+    codeReader.decodeFromVideoDevice(
+      currentDeviceId,
+      video,
+      (result, err) => {
 
-      if(!scanning) return;
+        if(result){
+          const text = result.getText();
+          const now = Date.now();
 
-      if(result){
-        const text=result.getText();
-        const now=Date.now();
-
-        if(serialMode){
-          if(now-lastScanTime>800){
-            addResult(text);
-            beep.play().catch(()=>{});
-            navigator.vibrate?.(80);
-            lastScanTime=now;
+          if(serialMode){
+            if(now - lastScanTime > 800){
+              addResult(text);
+              lastScanTime = now;
+            }
+          } else {
+            if(text !== lastScan){
+              addResult(text);
+              lastScan = text;
+            }
           }
-        }else{
-          if(text!==lastScan){
-            addResult(text);
-            beep.play().catch(()=>{});
-            navigator.vibrate?.(80);
-            lastScan=text;
-          }
+
+          beep.play().catch(()=>{});
+          navigator.vibrate?.(80);
         }
+
       }
+    );
 
-    });
-
-  }catch(e){
-    alert("Kamera açılamadı: "+e.message);
+  }catch(err){
+    alert("Kamera hatası: " + err);
   }
 }
 
-function stopCamera(){
-  scanning=false;
+/* --- DURDUR --- */
+
+function stopScanner(){
   codeReader.reset();
-  stream?.getTracks().forEach(t=>t.stop());
 }
 
-/* ---- SONUÇ EKLE ---- */
+/* --- SONUÇ EKLE --- */
 
 function addResult(text){
-  const div=document.createElement("div");
-  div.textContent=text;
+  const div = document.createElement("div");
+  div.textContent = text;
   resultList.appendChild(div);
-  resultList.scrollTop=resultList.scrollHeight;
+  resultList.scrollTop = resultList.scrollHeight;
 }
 
-/* ---- FLASH ---- */
+/* --- KOPYALA --- */
 
-async function toggleFlash(){
-  if(!track) return;
-  const caps=track.getCapabilities();
-  if(!caps.torch){ alert("Flash desteklenmiyor"); return;}
-  torchOn=!torchOn;
-  await track.applyConstraints({advanced:[{torch:torchOn}]});
-}
-
-/* ---- TÜMÜNÜ KOPYALA ---- */
-
-copyAllBtn.onclick=async ()=>{
-  const text=[...resultList.children].map(d=>d.textContent).join("\n");
+copyAllBtn.onclick = async () => {
+  const text = [...resultList.children].map(d=>d.textContent).join("\n");
   if(!text) return alert("Liste boş");
   await navigator.clipboard.writeText(text);
-  alert("Liste kopyalandı");
+  alert("Kopyalandı");
 };
 
-/* ---- PAYLAŞ ---- */
+/* --- PAYLAŞ --- */
 
-shareBtn.onclick=async ()=>{
-  const text=[...resultList.children].map(d=>d.textContent).join("\n");
+shareBtn.onclick = async () => {
+  const text = [...resultList.children].map(d=>d.textContent).join("\n");
   if(!text) return alert("Liste boş");
 
   if(navigator.share){
-    await navigator.share({text});
+    await navigator.share({ text });
   }else{
     alert("Paylaşım desteklenmiyor");
   }
 };
 
-/* ---- OCR ---- */
+/* --- FLASH --- */
 
-ocrInput.addEventListener("change",async e=>{
-  const file=e.target.files[0];
-  if(!file) return;
+flashBtn.onclick = async () => {
+  const track = video.srcObject?.getVideoTracks()[0];
+  if(!track) return;
 
-  const { data:{ text } } = await Tesseract.recognize(file,"tur");
-  if(text.trim()){
-    addResult(text.trim());
-  }else{
-    alert("Metin bulunamadı");
+  const caps = track.getCapabilities();
+  if(!caps.torch){
+    alert("Flash desteklenmiyor");
+    return;
   }
-});
+
+  torchOn = !torchOn;
+  await track.applyConstraints({ advanced:[{ torch: torchOn }] });
+};
+
+/* --- KAMERA ÇEVİR --- */
+
+switchBtn.onclick = async () => {
+
+  const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+  if(devices.length < 2) return;
+
+  currentDeviceId =
+    devices.find(d => d.deviceId !== currentDeviceId)?.deviceId;
+
+  startScanner();
+};
