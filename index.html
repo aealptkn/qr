@@ -4,16 +4,16 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Alptekin QR Barkod Tarayıcı</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#000000">
 
 <link rel="icon" type="image/png" href="icon.png">
-<link rel="apple-touch-icon" href="icon.png">
+<link rel="apple-touch-icon" href="./icon.png">
 
-<script type="text/javascript" src="zxing.min.js"></script>
-<script src="tesseract.min.js"></script>
-<link rel="stylesheet" href="cropper.min.css" />
-<script src="cropper.min.js"></script>
+<script type="text/javascript" src="./zxing.min.js"></script>
+<script src="./tesseract.min.js"></script>
+<link rel="stylesheet" href="./cropper.min.css" />
+<script src="./cropper.min.js"></script>
 
 <style>
 body {
@@ -204,13 +204,15 @@ button.secondary {
     </div>
 </div>
 
-<script src="app.js"></script>
+<script src="./app.js"></script>
 
 <script>
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
+  navigator.serviceWorker.register("./sw.js");
 }
 </script>
 
 </body>
 </html>
+
+// js lerin başına bulunuğu yerde olsun diye bu şekilde ./ ekliyoruz 
