@@ -171,6 +171,29 @@ video {
 .controls button:active {
   opacity: 0.7;
 }
+
+#resultActions {
+  position: fixed;
+  bottom: 60px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  gap: 5px;
+  padding: 5px;
+  background: #111;
+  z-index: 999;
+}
+
+#resultActions button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  background: #34c759;
+  color: white;
+  font-size: 16px;
+}
+
 </style>
 </head>
 
@@ -190,6 +213,12 @@ video {
 <div class="info">Lütfen telefonu 15–20 cm uzaklıkta tutun</div>
 
 <div id="resultList"></div>
+
+<div id="resultActions">
+  <button id="copyAllBtn">📋 Tümünü Kopyala</button>
+  <button id="shareBtn">📤 Paylaş</button>
+</div>
+
 
 <div class="controls">
   <button id="startBtn" title="QR / Barkod Tarama">🔍</button>

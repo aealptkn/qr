@@ -237,111 +237,73 @@ async function startScanner() {
 
 
 // --- TARAMA DÖNGÜSÜ (scanArea bazlı) ---
+async function startScanner() {
 
-async function scanLoop() {
+  if (scanning) stopCamera();
 
-  if(!scanning) return;
-
-  requestAnimationFrame(scanLoop);
-
-
-
-  if(!video.videoWidth || !video.videoHeight) return;
-
-
-
-  const rect = scanArea.getBoundingClientRect();
-
-  const vRect = video.getBoundingClientRect();
-
-
-
-  // Videonun ölçek ve offset değerleri
-
-  const scale = Math.max(vRect.width / video.videoWidth, vRect.height / video.videoHeight);
-
-  const offsetX = (vRect.width - video.videoWidth * scale)/2;
-
-  const offsetY = (vRect.height - video.videoHeight * scale)/2;
-
-
-
-  const boxX = rect.left - vRect.left;
-
-  const boxY = rect.top - vRect.top;
-
-
-
-  const nativeX = (boxX - offsetX)/scale;
-
-  const nativeY = (boxY - offsetY)/scale;
-
-  const nativeWidth = rect.width/scale;
-
-  const nativeHeight = rect.height/scale;
-
-
-
-  scanCanvas.width = nativeWidth;
-
-  scanCanvas.height = nativeHeight;
-
-
-
-  scanCtx.drawImage(video, nativeX, nativeY, nativeWidth, nativeHeight, 0, 0, nativeWidth, nativeHeight);
-
-
+  scanning = true;
+  lastScan = "";
+  lastScanTime = 0;
+  zoomContainer.style.display = "none";
 
   try {
 
-    const result = await codeReader.decodeFromCanvas(scanCanvas);
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: currentFacingMode }
+    });
 
-    if(result){
+    video.srcObject = stream;
+    track = stream.getVideoTracks()[0];
+    await video.play();
 
-      const value = result.text || result.getText();
+    // Zoom desteği
+    setTimeout(() => {
+      const caps = track.getCapabilities();
+      if (caps.zoom) {
+        zoomContainer.style.display = "block";
+        zoomSlider.min = caps.zoom.min;
+        zoomSlider.max = caps.zoom.max;
+        zoomSlider.step = caps.zoom.step || 0.1;
+        zoomSlider.value = track.getSettings().zoom || 1;
 
-      const currentImageBase64 = scanCanvas.toDataURL("image/jpeg",0.9);
+        zoomSlider.oninput = async e => {
+          await track.applyConstraints({
+            advanced: [{ zoom: parseFloat(e.target.value) }]
+          });
+        };
+      }
+    }, 500);
 
+    // 🔥 Asıl Tarama
+    codeReader.decodeFromVideoElementContinuously(video, (result, err) => {
 
+      if (result) {
 
-      if(serialMode){
-
+        const value = result.getText();
         const now = Date.now();
 
-        if(now - lastScanTime > scanCooldown){
-
-          addResult(value, currentImageBase64);
-
-          beep.play().catch(()=>{}); navigator.vibrate?.(100);
-
-          lastScanTime = now;
-
+        if (serialMode) {
+          if (now - lastScanTime > scanCooldown) {
+            addResult(value);
+            beep.play().catch(() => {});
+            navigator.vibrate?.(100);
+            lastScanTime = now;
+          }
+        } else {
+          if (value !== lastScan) {
+            addResult(value);
+            beep.play().catch(() => {});
+            navigator.vibrate?.(100);
+            lastScan = value;
+          }
         }
-
-      } else {
-
-        if(value !== lastScan){
-
-          addResult(value, currentImageBase64);
-
-          beep.play().catch(()=>{}); navigator.vibrate?.(100);
-
-          lastScan = value;
-
-        }
-
       }
+    });
 
-    }
-
-  } catch(e){
-
-    // Okuyamazsa sessiz geç
-
+  } catch (err) {
+    alert("Kamera açılamadı: " + err.message);
   }
-
 }
-
 
 
 // --- YARDIMCI FONKSİYONLAR ---
@@ -388,14 +350,50 @@ function addResult(text,imageBase64=null){
 
 }
 
-
-
 function isValidUrl(string){ try{ new URL(string); return true; } catch{ return false; } }
-
-
 
 async function toggleFlash(){ if(!track) return; const caps=track.getCapabilities(); if(!caps.torch){ alert("Flash desteklenmiyor."); return; } torchOn=!torchOn; await track.applyConstraints({advanced:[{torch:torchOn}]}); }
 
+function stopCamera() {
+  scanning = false;
+  torchOn = false;
+  zoomContainer.style.display = "none";
+  codeReader.reset();
+  stream?.getTracks().forEach(t => t.stop());
+}
 
+const copyAllBtn = document.getElementById("copyAllBtn");
+const shareBtn = document.getElementById("shareBtn");
 
-function stopCamera(){ scanning=false; torchOn=false; zoomContainer.style.display="none"; stream?.getTracks().forEach(t=>t.stop()); }
+function getAllResultsText() {
+  const items = resultList.querySelectorAll("div");
+  let text = "";
+  items.forEach(item => {
+    text += item.firstChild.textContent + "\n";
+  });
+  return text.trim();
+}
+
+copyAllBtn.onclick = async () => {
+  const text = getAllResultsText();
+  if (!text) return alert("Liste boş.");
+
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("Tüm liste kopyalandı!");
+  } catch {
+    alert("Kopyalama başarısız.");
+  }
+};
+
+shareBtn.onclick = async () => {
+  const text = getAllResultsText();
+  if (!text) return alert("Liste boş.");
+
+  if (navigator.share) {
+    await navigator.share({ text });
+  } else {
+    alert("Paylaşım desteklenmiyor.");
+  }
+};
+
