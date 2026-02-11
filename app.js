@@ -17,6 +17,7 @@ const cropContainer = document.getElementById('cropContainer');
 const imageToCrop = document.getElementById('imageToCrop');
 const doCropBtn = document.getElementById('doCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
+const rotateCropBtn = document.getElementById('rotateCropBtn'); // YENİ: Döndür Butonu
 let cropper;
 
 // --- DEĞİŞKENLER ---
@@ -36,11 +37,21 @@ const codeReader = new ZXing.BrowserMultiFormatReader();
 const scanCanvas = document.createElement("canvas");
 const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
 
-// --- BUTON OLAYLARI ---
-startBtn.onclick = () => { serialMode = false; startScanner(); };
-serialBtn.onclick = () => { serialMode = true; startScanner(); };
+// --- BUTON OLAYLARI (Aç/Kapat Toggle Mantığı Eklendi) ---
+startBtn.onclick = () => { 
+  if (scanning && !serialMode) { stopCamera(); return; } // Açıksa kapat
+  serialMode = false; 
+  startScanner(); 
+};
+
+serialBtn.onclick = () => { 
+  if (scanning && serialMode) { stopCamera(); return; } // Açıksa kapat
+  serialMode = true; 
+  startScanner(); 
+};
+
 flashBtn.onclick = toggleFlash;
-clearBtn.onclick = () => { resultList.innerHTML = ""; lastScan = ""; };
+clearBtn.onclick = () => { resultList.innerHTML = ""; lastScan = ""; }; // Sadece burası listeyi temizler
 switchBtn.onclick = () => { currentFacingMode = currentFacingMode === "environment" ? "user" : "environment"; if(scanning) startScanner(); };
 ocrBtn.onclick = () => { stopCamera(); ocrInput.click(); };
 
@@ -64,10 +75,15 @@ cancelCropBtn.addEventListener('click', () => {
   if(cropper) cropper.destroy();
 });
 
+// YENİ: Resmi 90 Derece Döndürme
+rotateCropBtn.addEventListener('click', () => {
+  if(cropper) cropper.rotate(90);
+});
+
 doCropBtn.addEventListener('click', async () => {
   if(!cropper) return;
   cropContainer.style.display = 'none';
-  addResult("Kırpılan alan işleniyor...");
+  addResult("Kırpılan alan işleniyor..."); // Eski listeye eklenir, listeyi silmez
   const canvas = cropper.getCroppedCanvas({ maxWidth:2048, maxHeight:2048, imageSmoothingQuality:'high' });
   canvas.toBlob(async blob => {
     cropper.destroy();
@@ -92,7 +108,7 @@ doCropBtn.addEventListener('click', async () => {
 async function startScanner() {
   if(scanning) stopCamera();
   scanning = true;
-  lastScan = ""; lastScanTime = 0;
+  lastScanTime = 0; // lastScan bilerek sıfırlanmadı ki aynı QR'ı üst üste okumasın
   zoomContainer.style.display = "none";
 
   try {
@@ -110,19 +126,18 @@ async function startScanner() {
       }
     },500);
 
-    scanLoop(); // Döngüyü başlat
+    scanLoop(); 
 
   } catch(err){
     alert("Kamera açılamadı: "+err.message);
   }
 }
 
-// --- TARAMA DÖNGÜSÜ (scanArea bazlı) ---
+// --- TARAMA DÖNGÜSÜ ---
 async function scanLoop() {
   if(!scanning) return;
 
   if(!video.videoWidth || !video.videoHeight) {
-      // Sadece video hazır değilse başa dön
       requestAnimationFrame(scanLoop);
       return;
   }
@@ -130,7 +145,6 @@ async function scanLoop() {
   const rect = scanArea.getBoundingClientRect();
   const vRect = video.getBoundingClientRect();
 
-  // Videonun ölçek ve offset değerleri
   const scale = Math.max(vRect.width / video.videoWidth, vRect.height / video.videoHeight);
   const offsetX = (vRect.width - video.videoWidth * scale)/2;
   const offsetY = (vRect.height - video.videoHeight * scale)/2;
@@ -166,6 +180,8 @@ async function scanLoop() {
           addResult(value, currentImageBase64);
           beep.play().catch(()=>{}); navigator.vibrate?.(100);
           lastScan = value;
+          stopCamera(); // YENİ: Tekli taramada okuduktan sonra kamerayı kapatır
+          return; // Döngüden çık
         }
       }
     }
@@ -173,8 +189,6 @@ async function scanLoop() {
     // Okuyamazsa sessiz geç
   }
 
-  // EN KRİTİK DÜZELTME: Döngü, tarama işlemi bittikten kısa bir süre sonra tekrar çağrılır. 
-  // Bu sayede RAM şişmez, kamera kapanmaz.
   setTimeout(() => {
     requestAnimationFrame(scanLoop);
   }, 100);
@@ -182,62 +196,87 @@ async function scanLoop() {
 
 // --- YARDIMCI FONKSİYONLAR ---
 function addResult(text, imageBase64=null){
-  const div=document.createElement("div");
+  const div = document.createElement("div");
   
-  // Metni sonradan toplu kopyalayabilmek için etiketliyoruz
   const textSpan = document.createElement("span");
   textSpan.className = "scanned-text";
 
   if(isValidUrl(text)){
-    const a=document.createElement("a"); a.href=text; a.target="_blank"; a.textContent=text; 
+    const a = document.createElement("a"); a.href=text; a.target="_blank"; a.textContent=text; 
     textSpan.appendChild(a);
   } else {
     textSpan.textContent=text;
   }
   div.appendChild(textSpan);
 
+  // Küçük resim indirme butonu her veride kalmaya devam etsin mi? 
+  // Sadece metin paylaşılacağı için resmi almak isteyen buradan alsın.
   if(imageBase64){
-    const btnGroup=document.createElement("div"); btnGroup.style.display="flex"; btnGroup.style.gap="8px"; btnGroup.style.marginTop="5px";
-    const downloadBtn=document.createElement("button"); downloadBtn.innerHTML="📷 İndir"; downloadBtn.style.flex="1";
-    downloadBtn.className = "secondary"; downloadBtn.style.padding = "8px"; downloadBtn.style.borderRadius = "6px";
-    downloadBtn.onclick=()=>{ const link=document.createElement("a"); link.href=imageBase64; link.download="tarama_"+Date.now()+".jpg"; link.click(); };
-    btnGroup.appendChild(downloadBtn);
+    const downloadBtn = document.createElement("button"); 
+    downloadBtn.innerHTML = "📷 İndir"; 
+    downloadBtn.className = "secondary"; 
+    downloadBtn.style.padding = "4px 8px"; 
+    downloadBtn.style.fontSize = "12px";
+    downloadBtn.style.marginTop = "5px";
+    downloadBtn.onclick = () => { 
+        const link = document.createElement("a"); link.href = imageBase64; link.download = "tarama_"+Date.now()+".jpg"; link.click(); 
+    };
     div.appendChild(document.createElement("br")); 
-    div.appendChild(btnGroup);
+    div.appendChild(downloadBtn);
   }
 
   resultList.appendChild(div);
 
-  // YENİ: Kopyala butonunu her zaman listenin en sonuna sabitleme
-  let globalCopyBtn = document.getElementById("globalCopyBtn");
-  if (!globalCopyBtn) {
-      globalCopyBtn = document.createElement("button");
-      globalCopyBtn.id = "globalCopyBtn";
-      globalCopyBtn.innerHTML = "📋 Tüm Listeyi Kopyala";
-      globalCopyBtn.style.width = "100%";
-      globalCopyBtn.style.padding = "12px";
-      globalCopyBtn.style.marginTop = "15px";
-      globalCopyBtn.style.backgroundColor = "#3a3a3c";
-      globalCopyBtn.style.color = "white";
-      globalCopyBtn.style.border = "none";
-      globalCopyBtn.style.borderRadius = "8px";
-      globalCopyBtn.style.fontSize = "15px";
-      globalCopyBtn.onclick = async () => {
-          // Sadece "scanned-text" sınıfına sahip metinleri topla
+  // YENİ: Toplu Kopyala ve Paylaş Butonları SADECE Listenin En Altında
+  let globalControls = document.getElementById("globalControls");
+  if (!globalControls) {
+      globalControls = document.createElement("div");
+      globalControls.id = "globalControls";
+      globalControls.style.display = "flex";
+      globalControls.style.gap = "10px";
+      globalControls.style.marginTop = "15px";
+      globalControls.style.padding = "10px 0";
+
+      // Kopyala Butonu
+      const copyBtn = document.createElement("button");
+      copyBtn.innerHTML = "📋 Tümünü Kopyala";
+      copyBtn.style.flex = "1";
+      copyBtn.style.padding = "12px";
+      copyBtn.style.backgroundColor = "#3a3a3c";
+      copyBtn.style.color = "white";
+      copyBtn.style.border = "none";
+      copyBtn.style.borderRadius = "8px";
+      copyBtn.onclick = async () => {
           const texts = Array.from(document.querySelectorAll('.scanned-text')).map(el => el.textContent).join('\n\n');
           if(!texts) return;
-          try { 
-              await navigator.clipboard.writeText(texts); 
-              alert("Tüm liste kopyalandı!"); 
-          } catch { 
-              alert("Kopyalama başarısız."); 
-          }
+          try { await navigator.clipboard.writeText(texts); alert("Tüm liste kopyalandı!"); } 
+          catch { alert("Kopyalama başarısız."); }
       };
-  }
-  // appendChild mevcut elementi alır ve listenin en altına taşır
-  resultList.appendChild(globalCopyBtn);
+      globalControls.appendChild(copyBtn);
 
-  resultList.scrollTop=resultList.scrollHeight;
+      // Paylaş (Yolla) Butonu - Sadece destekleyen cihazlarda (Mobil/Modern Tarayıcılar) çıkar
+      if (navigator.share) {
+          const shareBtn = document.createElement("button");
+          shareBtn.innerHTML = "📤 Tümünü Paylaş";
+          shareBtn.style.flex = "1";
+          shareBtn.style.padding = "12px";
+          shareBtn.style.backgroundColor = "#0a84ff";
+          shareBtn.style.color = "white";
+          shareBtn.style.border = "none";
+          shareBtn.style.borderRadius = "8px";
+          shareBtn.onclick = async () => {
+              const texts = Array.from(document.querySelectorAll('.scanned-text')).map(el => el.textContent).join('\n\n');
+              if(!texts) return;
+              try { await navigator.share({ title: 'Tarama Sonuçları', text: texts }); } 
+              catch (err) { console.log("Paylaşım iptal edildi:", err); }
+          };
+          globalControls.appendChild(shareBtn);
+      }
+  }
+  
+  // Bu kod buton grubunu her zaman listenin en altına iter
+  resultList.appendChild(globalControls);
+  resultList.scrollTop = resultList.scrollHeight;
 }
 
 function isValidUrl(string){ try{ new URL(string); return true; } catch{ return false; } }
