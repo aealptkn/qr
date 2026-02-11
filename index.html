@@ -290,6 +290,34 @@ video {
     align-items: center;
     gap: 5px;
 }
+
+/* QR Kodun kapsayıcısını referans noktası yapıyoruz */
+#generatedQrCode {
+    position: relative; /* Ortaya element koyabilmek için şart */
+    /* Diğer stiller aynen kalıyor... */
+}
+
+/* Ortaya gelecek Baş Harf Logosu */
+.qr-initials-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Tam merkeze hizala */
+    width: 60px;  /* Logonun genişliği */
+    height: 60px; /* Logonun yüksekliği */
+    background-color: #ffffff; /* Arkadaki QR noktalarını kapatmak için beyaz zemin */
+    border-radius: 50%; /* Yuvarlak yap */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 900; /* Kalın yazı */
+    font-size: 24px;
+    color: #000000; /* Siyah harfler */
+    border: 4px solid #ffffff; /* Beyaz kalın çerçeve (padding gibi görünür) */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Hafif gölge ver ki havada dursun */
+    z-index: 10; /* En üstte görünsün */
+}
+
 </style>
 </head>
 

@@ -36,8 +36,6 @@ let currentFacingMode = "environment";
 const beep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
 const codeReader = new ZXing.BrowserMultiFormatReader();
 
-// DİKKAT: Eski Canvas oluşturma (scanCanvas) bölümü senin çalışan mantığın lehine silindi.
-
 // --- BUTON OLAYLARI ---
 createQrBtn.onclick = openQrGenerator;
 
@@ -105,7 +103,6 @@ if (rotateCropBtn) {
 doCropBtn.addEventListener('click', async () => {
   if(!cropper) return;
   cropContainer.style.display = 'none';
-  //addResult("Kırpılan alan işleniyor..."); 
   const canvas = cropper.getCroppedCanvas({ maxWidth:2048, maxHeight:2048, imageSmoothingQuality:'high' });
   canvas.toBlob(async blob => {
     cropper.destroy();
@@ -134,21 +131,12 @@ async function startScanner() {
   zoomContainer.style.display = "none";
 
   try {
-    // 1. Kameradan görüntüyü (stream) alıyoruz
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:currentFacingMode } });
-    
-    // Zoom ayarı için track'i kenara not ediyoruz
     track = stream.getVideoTracks()[0];
 
-    // DİKKAT: Buradaki video.srcObject = stream ve video.play() satırlarını SİLDİK.
-    // Çünkü aşağıdaki kod (decodeFromStream) bunu zaten yapıyor. Çakışmayı böyle engelledik.
-
-    // 2. Stream'i ve Video elementini ZXing kütüphanesine teslim ediyoruz
-    // "Videoyu oynatmak ve okumak senin işin" diyoruz.
     codeReader.decodeFromStream(stream, video, (result, err) => {
         if (result) {
             const value = result.text;
-            
             if(serialMode){
               const now = Date.now();
               if(now - lastScanTime > scanCooldown){
@@ -167,7 +155,6 @@ async function startScanner() {
         }
     });
 
-    // 3. Zoom kontrolünü kamera oturduktan sonra aktif ediyoruz
     setTimeout(() => {
       const caps = track.getCapabilities();
       if(caps.zoom){
@@ -185,12 +172,9 @@ async function startScanner() {
   }
 }
 
-// DİKKAT: Eski async function scanLoop() tamamen silindi.
-
 // --- YARDIMCI FONKSİYONLAR ---
 function addResult(text, imageBase64=null){
   const div = document.createElement("div");
-  
   const textSpan = document.createElement("span");
   textSpan.className = "scanned-text";
 
@@ -229,10 +213,10 @@ function stopCamera(){
   torchOn=false; 
   zoomContainer.style.display="none"; 
   stream?.getTracks().forEach(t=>t.stop()); 
-  codeReader.reset(); // Tarayıcının arkaplanda çalışmasını durdurmak için eklendi
+  codeReader.reset(); 
 }
 
-// --- OFFLINE BAĞIMLILIK KONTROLÜ (Sadece İlk Açılışta Çalışır) ---
+// --- OFFLINE BAĞIMLILIK KONTROLÜ ---
 async function bagimliliklariKontrolEt() {
     if (localStorage.getItem("offlineKontrolOnaylandi") === "true") {
         return;
@@ -245,48 +229,32 @@ async function bagimliliklariKontrolEt() {
         './cropper.min.js',
         './worker.min.js',
         './tesseract-core.wasm.js',
-        './tesseract-core.wasm', // EKSİK OLAN KRİTİK DOSYA EKLENDİ
+        './tesseract-core.wasm', 
         './qrcode.min.js',
         './tur.traineddata.gz'
     ];
 
     let eksikDosyalar = [];
-    let bulunanDosyalar = [];
-
     for (let dosya of dosyalar) {
         try {
             const yanit = await fetch(dosya, { method: 'HEAD', cache: 'no-store' });
-            if (yanit.ok) {
-                bulunanDosyalar.push(dosya);
-            } else {
-                eksikDosyalar.push(dosya);
-            }
+            if (!yanit.ok) eksikDosyalar.push(dosya);
         } catch (hata) {
             eksikDosyalar.push(dosya);
         }
     }
 
-    let mesaj = "Offline Kullanım Kontrol Raporu\n\n";
-
-    if (eksikDosyalar.length === 0) {
-        mesaj += "✅ Harika! Tüm gerekli dosyalar cihazında mevcut.\nUygulama %100 internetsiz çalışmaya hazır.\n";
-    } else {
-        mesaj += "⚠️ DİKKAT! Uygulamanın internetsiz çalışmasını engelleyecek EKSİK dosyalar var:\n";
+    if (eksikDosyalar.length > 0) {
+        let mesaj = "⚠️ EKSİK DOSYALAR VAR (Offline Çalışmaz):\n";
         eksikDosyalar.forEach(d => mesaj += " - " + d + "\n");
-        mesaj += "\nLütfen bu dosyaların proje klasöründe olduğundan emin ol.\n";
-    }
-
-    mesaj += "\nBu mesajı onayladığınızda bir daha gösterilmeyecektir. Onaylıyor musunuz?";
-
-    const onay = confirm(mesaj);
-    if (onay) {
-        localStorage.setItem("offlineKontrolOnaylandi", "true");
+        alert(mesaj);
+    } else {
+        const onay = confirm("✅ Tüm dosyalar tam! Uygulama internetsiz çalışmaya hazır.\nBu mesajı bir daha görmek istemiyorsanız Tamam'a basın.");
+        if (onay) localStorage.setItem("offlineKontrolOnaylandi", "true");
     }
 }
 
-// Sayfa yüklendiğinde kontrolü otomatik başlat
 window.addEventListener('load', () => {
-    // Kameranın açılışını engellememesi için 1.5 saniye gecikmeli çalıştırıyoruz
     setTimeout(bagimliliklariKontrolEt, 1500);
 });
 
@@ -294,10 +262,9 @@ window.addEventListener('load', () => {
 let qrCodeObj = null;
 
 function openQrGenerator() {
-    stopCamera(); // Kamera arkada çalışmasın
+    stopCamera(); 
     document.getElementById("qrGeneratorContainer").style.display = "flex";
     
-    // Hafızadan eski bilgileri getir
     const savedData = JSON.parse(localStorage.getItem("myCardData") || "{}");
     document.getElementById("vName").value = savedData.name || "";
     document.getElementById("vTitle").value = savedData.title || "";
@@ -307,7 +274,6 @@ function openQrGenerator() {
     document.getElementById("vAddress").value = savedData.address || "";
 
     if(savedData.name) {
-      // true parametresi göndererek 'benim kartım' olduğunu belirtiyoruz
       setTimeout(() => generateQr(true), 100); 
     }
 }
@@ -316,38 +282,31 @@ function closeQrGenerator() {
     document.getElementById("qrGeneratorContainer").style.display = "none";
 }
 
-// --- YENİ GELİŞMİŞ QR FONKSİYONLARI ---
-
-// saveMode: true ise hafızaya kaydeder, false ise sadece QR üretir
+// --- AKILLI QR OLUŞTURMA VE PAYLAŞMA ---
 function generateQr(saveMode) {
     const qrContainer = document.getElementById("generatedQrCode");
     const shareContainer = document.getElementById("shareQrContainer");
     
-    qrContainer.innerHTML = ""; // Temizle
-    shareContainer.style.display = "none"; // Paylaş butonunu gizle
+    qrContainer.innerHTML = ""; 
+    shareContainer.style.display = "none"; 
 
-    const name = document.getElementById("vName").value.trim();
+    const nameInput = document.getElementById("vName").value.trim();
     const title = document.getElementById("vTitle").value.trim();
     const org = document.getElementById("vOrg").value.trim();
     const phone = document.getElementById("vPhone").value.trim();
     const email = document.getElementById("vEmail").value.trim();
     const address = document.getElementById("vAddress").value.trim();
 
-    if (!name) { 
-        alert("Lütfen en azından bir isim girin."); 
-        return; 
-    }
+    if (!nameInput) { alert("Lütfen isim girin."); return; }
 
-    // EĞER KAYDET BUTONUNA BASILDIYSA HAFIZAYA YAZ
     if (saveMode) {
-        const cardData = { name, title, org, phone, email, address };
+        const cardData = { name: nameInput, title, org, phone, email, address };
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
 
-    // Türkçe Karakter Destekli vCard Oluşturma
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
-    vCard += `N;CHARSET=UTF-8:${name};;;\n`;
-    vCard += `FN;CHARSET=UTF-8:${name}\n`;
+    vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
+    vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
     if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
     if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
     if (phone) vCard += `TEL:${phone}\n`;
@@ -355,48 +314,73 @@ function generateQr(saveMode) {
     if (address) vCard += `ADR;CHARSET=UTF-8:;;${address};;;;\n`;
     vCard += `END:VCARD`;
 
-    // QR Oluşturma
-    requestAnimationFrame(() => {
+    function getInitials(fullName) {
+        if (!fullName) return "";
+        const names = fullName.split(" ").filter(n => n.length > 0);
+        let initials = names[0].charAt(0).toUpperCase(); 
+        if (names.length > 1) {
+            initials += names[names.length - 1].charAt(0).toUpperCase(); 
+        }
+        return initials;
+    }
+
+    // Seviyeler: H (Logo var), Q, M, L (En geniş kapasite)
+    const levels = [QRCode.CorrectLevel.H, QRCode.CorrectLevel.Q, QRCode.CorrectLevel.M, QRCode.CorrectLevel.L];
+
+    function tryGenerateLevel(index) {
+        if (index >= levels.length) {
+            alert("Veri çok uzun! QR kod oluşturulamadı.");
+            return;
+        }
+
         try {
-            // Türkçe karakterleri güvenli formata çevir
+            qrContainer.innerHTML = ""; 
             function toUtf8(str) { return unescape(encodeURIComponent(str)); }
 
             qrCodeObj = new QRCode(qrContainer, {
                 text: toUtf8(vCard),
-                width: 180,
-                height: 180,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-                correctLevel: QRCode.CorrectLevel.M
+                width: 256, height: 256,
+                colorDark: "#000000", colorLight: "#ffffff",
+                correctLevel: levels[index]
             });
 
-            // QR oluştuktan hemen sonra Paylaş butonunu göster
-            setTimeout(() => {
-                if(qrContainer.querySelector("img")) {
-                    shareContainer.style.display = "flex";
+            const img = qrContainer.querySelector("img");
+            if(img) { img.style.width = "100%"; img.style.height = "100%"; }
+
+            // Sadece H seviyesindeyse logo ekle
+            if (levels[index] === QRCode.CorrectLevel.H) {
+                const initials = getInitials(nameInput);
+                if (initials) {
+                    const overlay = document.createElement("div");
+                    overlay.className = "qr-initials-overlay";
+                    overlay.innerText = initials;
+                    qrContainer.appendChild(overlay);
                 }
+            }
+
+            setTimeout(() => {
+                if(qrContainer.querySelector("img")) shareContainer.style.display = "flex";
             }, 300);
 
         } catch (e) {
-            console.error("QR HATASI:", e);
-            alert("QR oluşturulurken hata oluştu. qrcode.min.js yüklü mü?");
+            console.warn("Seviye düşürülüyor...", levels[index]);
+            tryGenerateLevel(index + 1);
         }
-    });
+    }
+
+    requestAnimationFrame(() => { tryGenerateLevel(0); });
 }
 
-// QR Resmini Paylaşma Fonksiyonu
 async function shareQrImage() {
     const qrContainer = document.getElementById("generatedQrCode");
-    const img = qrContainer.querySelector("img"); // QR kütüphanesinin ürettiği resim
+    const img = qrContainer.querySelector("img"); 
 
     if (!img || !img.src) { alert("QR kodu henüz oluşmadı."); return; }
 
     try {
-        // Base64 verisini dosyaya çevir
         const blob = await (await fetch(img.src)).blob();
         const file = new File([blob], "kartvizit_qr.png", { type: "image/png" });
 
-        // Web Share API ile paylaş
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
                 title: 'QR Kartvizit',
