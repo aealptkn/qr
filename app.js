@@ -176,50 +176,23 @@ async function startScanner() {
 }
 
 // Tarama döngüsü
+// Tarama döngüsü
 async function scanLoop() {
   if (!scanning) return;
 
   await new Promise(r => setTimeout(r, 1000 / 12)); 
-
-  const rect = scanArea.getBoundingClientRect();
-  const vRect = video.getBoundingClientRect();
 
   if (!video.videoWidth || !video.videoHeight) {
     requestAnimationFrame(scanLoop);
     return;
   }
 
-  // DÜZELTME: object-fit: cover kullanıldığında kayan koordinatları düzeltme matematiği
-  const videoRatio = video.videoWidth / video.videoHeight;
-  const elementRatio = vRect.width / vRect.height;
-  let renderWidth, renderHeight, xOffset, yOffset;
-
-  if (videoRatio > elementRatio) {
-    renderHeight = vRect.height;
-    renderWidth = vRect.height * videoRatio;
-    xOffset = (renderWidth - vRect.width) / 2;
-    yOffset = 0;
-  } else {
-    renderWidth = vRect.width;
-    renderHeight = vRect.width / videoRatio;
-    xOffset = 0;
-    yOffset = (renderHeight - vRect.height) / 2;
-  }
-
-  const scaleX = video.videoWidth / renderWidth;
-  const scaleY = video.videoHeight / renderHeight;
-
-  // Yeşil kutunun tam olarak nereye denk geldiğini hassas hesaplıyoruz
-  const sx = (rect.left - vRect.left + xOffset) * scaleX;
-  const sy = (rect.top - vRect.top + yOffset) * scaleY;
-  const sw = rect.width * scaleX;
-  const sh = rect.height * scaleY;
-
-  scanCanvas.width = sw;
-  scanCanvas.height = sh;
-
-  // DÜZELTME: Filtre kaldırıldı (saf görüntü barkod okuyucu için daha garantilidir)
-  scanCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+  // DÜZELTME: Koordinat hatasını ve okumama sorununu çözmek için
+  // yeşil kutu hesaplaması yerine doğrudan tam kamera görüntüsünü tuvale aktarıyoruz.
+  // Yeşil kutu kullanıcı için görsel bir hedef olarak kalmaya devam edecek.
+  scanCanvas.width = video.videoWidth;
+  scanCanvas.height = video.videoHeight;
+  scanCtx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
 
   try {
     const result = await codeReader.decodeFromCanvas(scanCanvas);
@@ -245,11 +218,12 @@ async function scanLoop() {
       }
     }
   } catch (e) {
-    // NotFoundException ignore
+    // NotFoundException ignore - Barkod bulamazsa sessizce devam et
   }
 
   requestAnimationFrame(scanLoop);
 }
+
 
 // --- YARDIMCI FONKSİYONLAR ---
 function addResult(text, imageBase64 = null) {
