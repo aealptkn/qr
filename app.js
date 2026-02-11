@@ -189,19 +189,37 @@ async function scanLoop() {
     return;
   }
 
-  const scaleX = video.videoWidth / vRect.width;
-  const scaleY = video.videoHeight / vRect.height;
-  const sx = (rect.left - vRect.left) * scaleX;
-  const sy = (rect.top - vRect.top) * scaleY;
+  // DÜZELTME: object-fit: cover kullanıldığında kayan koordinatları düzeltme matematiği
+  const videoRatio = video.videoWidth / video.videoHeight;
+  const elementRatio = vRect.width / vRect.height;
+  let renderWidth, renderHeight, xOffset, yOffset;
+
+  if (videoRatio > elementRatio) {
+    renderHeight = vRect.height;
+    renderWidth = vRect.height * videoRatio;
+    xOffset = (renderWidth - vRect.width) / 2;
+    yOffset = 0;
+  } else {
+    renderWidth = vRect.width;
+    renderHeight = vRect.width / videoRatio;
+    xOffset = 0;
+    yOffset = (renderHeight - vRect.height) / 2;
+  }
+
+  const scaleX = video.videoWidth / renderWidth;
+  const scaleY = video.videoHeight / renderHeight;
+
+  // Yeşil kutunun tam olarak nereye denk geldiğini hassas hesaplıyoruz
+  const sx = (rect.left - vRect.left + xOffset) * scaleX;
+  const sy = (rect.top - vRect.top + yOffset) * scaleY;
   const sw = rect.width * scaleX;
   const sh = rect.height * scaleY;
 
   scanCanvas.width = sw;
   scanCanvas.height = sh;
 
-  scanCtx.filter = "contrast(150%) brightness(120%) grayscale(100%)";
+  // DÜZELTME: Filtre kaldırıldı (saf görüntü barkod okuyucu için daha garantilidir)
   scanCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-  scanCtx.filter = "none"; 
 
   try {
     const result = await codeReader.decodeFromCanvas(scanCanvas);
@@ -223,7 +241,6 @@ async function scanLoop() {
           beep.play().catch(() => {});
           navigator.vibrate?.(100);
           lastScan = value;
-          // YENİ: Okuyup okuyup listeye atmaya devam etmesi için stopCamera() kaldırıldı
         }
       }
     }
