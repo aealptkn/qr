@@ -176,23 +176,38 @@ async function startScanner() {
 }
 
 // Tarama döngüsü
-// Tarama döngüsü
 async function scanLoop() {
   if (!scanning) return;
 
   await new Promise(r => setTimeout(r, 1000 / 12)); 
+
+  const rect = scanArea.getBoundingClientRect();
+  const vRect = video.getBoundingClientRect();
 
   if (!video.videoWidth || !video.videoHeight) {
     requestAnimationFrame(scanLoop);
     return;
   }
 
-  // DÜZELTME: Koordinat hatasını ve okumama sorununu çözmek için
-  // yeşil kutu hesaplaması yerine doğrudan tam kamera görüntüsünü tuvale aktarıyoruz.
-  // Yeşil kutu kullanıcı için görsel bir hedef olarak kalmaya devam edecek.
-  scanCanvas.width = video.videoWidth;
-  scanCanvas.height = video.videoHeight;
-  scanCtx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
+  // KESİN ÇÖZÜM: object-fit: cover özelliği yüzünden kayan koordinatları 
+  // orijinal video boyutuna eşitleyen kusursuz matematik hesaplaması
+  const scale = Math.max(vRect.width / video.videoWidth, vRect.height / video.videoHeight);
+  const offsetX = (vRect.width - (video.videoWidth * scale)) / 2;
+  const offsetY = (vRect.height - (video.videoHeight * scale)) / 2;
+
+  const boxX = rect.left - vRect.left;
+  const boxY = rect.top - vRect.top;
+
+  const nativeX = (boxX - offsetX) / scale;
+  const nativeY = (boxY - offsetY) / scale;
+  const nativeWidth = rect.width / scale;
+  const nativeHeight = rect.height / scale;
+
+  scanCanvas.width = nativeWidth;
+  scanCanvas.height = nativeHeight;
+
+  // Sadece yeşil çerçevenin tam içini kesip okuyucuya gönder
+  scanCtx.drawImage(video, nativeX, nativeY, nativeWidth, nativeHeight, 0, 0, nativeWidth, nativeHeight);
 
   try {
     const result = await codeReader.decodeFromCanvas(scanCanvas);
@@ -218,7 +233,7 @@ async function scanLoop() {
       }
     }
   } catch (e) {
-    // NotFoundException ignore - Barkod bulamazsa sessizce devam et
+    // Okuyucu bir şey bulamazsa sessizce geç, sistemi dondurma
   }
 
   requestAnimationFrame(scanLoop);
