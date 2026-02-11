@@ -368,12 +368,18 @@ video {
     </div>
 
     <div class="qr-form">
-        <input type="text" id="vName" placeholder="Ad Soyad" />
+        <input type="text" id="vName" placeholder="Ad Soyad *" />
         <input type="text" id="vTitle" placeholder="Ünvan / Meslek" />
         <input type="text" id="vOrg" placeholder="Şirket Adı" />
-        <input type="tel" id="vPhone" placeholder="Telefon (Başına +90...)" />
+        
+        <input type="tel" id="vPhone" placeholder="Cep Telefonu (+90...)" />
+        <input type="tel" id="vWorkPhone" placeholder="İş Telefonu (+90...)" />
+        
         <input type="email" id="vEmail" placeholder="E-Posta Adresi" />
-        <input type="text" id="vAddress" placeholder="Adres / Web Sitesi" />
+        
+        <input type="url" id="vWebsite" placeholder="Web Sitesi (https://...)" />
+        <input type="text" id="vAddress" placeholder="Adres" />
+        <input type="text" id="vNote" placeholder="Not (Opsiyonel)" />
         
         <div class="qr-action-row">
             <button class="qr-btn btn-save" onclick="generateQr(true)">💾 Kaydet ve Üret</button>

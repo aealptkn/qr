@@ -178,13 +178,41 @@ function addResult(text, imageBase64=null){
   const textSpan = document.createElement("span");
   textSpan.className = "scanned-text";
 
-  if(isValidUrl(text)){
+  // --- KARTVİZİT ALGILAMA (Rehbere Kaydet) ---
+  if (text.startsWith("BEGIN:VCARD")) {
+      // İsmi çekmeye çalışalım
+      let nameMatch = text.match(/FN:(.*)/) || text.match(/N:(.*)/);
+      let contactName = nameMatch ? nameMatch[1].split(';')[0].replace("CHARSET=UTF-8:", "") : "Yeni Kişi";
+      
+      textSpan.innerHTML = `📇 <b>Kişi Kartı Algılandı:</b><br>${contactName}`;
+      
+      const saveContactBtn = document.createElement("button");
+      saveContactBtn.innerHTML = "📥 Rehbere Kaydet";
+      saveContactBtn.className = "secondary"; 
+      saveContactBtn.style.cssText = "display:block; width:100%; margin-top:8px; padding:10px; background:#34c759; color:white; border:none; border-radius:8px;";
+      
+      saveContactBtn.onclick = () => {
+          // vCard verisini bir dosya (blob) haline getir
+          const blob = new Blob([text], { type: "text/vcard" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${contactName}.vcf`; // Dosya adı
+          a.click();
+          URL.revokeObjectURL(url);
+      };
+      
+      div.appendChild(textSpan);
+      div.appendChild(saveContactBtn);
+
+  } else if(isValidUrl(text)){
     const a = document.createElement("a"); a.href=text; a.target="_blank"; a.textContent=text; 
     textSpan.appendChild(a);
+    div.appendChild(textSpan);
   } else {
     textSpan.textContent=text;
+    div.appendChild(textSpan);
   }
-  div.appendChild(textSpan);
 
   if(imageBase64){
     const downloadBtn = document.createElement("button"); 
@@ -265,13 +293,17 @@ function openQrGenerator() {
     stopCamera(); 
     document.getElementById("qrGeneratorContainer").style.display = "flex";
     
+    // Hafızadan bilgileri getir (Yeni alanlar dahil)
     const savedData = JSON.parse(localStorage.getItem("myCardData") || "{}");
     document.getElementById("vName").value = savedData.name || "";
     document.getElementById("vTitle").value = savedData.title || "";
     document.getElementById("vOrg").value = savedData.org || "";
     document.getElementById("vPhone").value = savedData.phone || "";
+    document.getElementById("vWorkPhone").value = savedData.workPhone || ""; // YENİ
     document.getElementById("vEmail").value = savedData.email || "";
+    document.getElementById("vWebsite").value = savedData.website || ""; // YENİ
     document.getElementById("vAddress").value = savedData.address || "";
+    document.getElementById("vNote").value = savedData.note || ""; // YENİ
 
     if(savedData.name) {
       setTimeout(() => generateQr(true), 100); 
@@ -290,28 +322,42 @@ function generateQr(saveMode) {
     qrContainer.innerHTML = ""; 
     shareContainer.style.display = "none"; 
 
+    // Yeni Alanları Oku
     const nameInput = document.getElementById("vName").value.trim();
     const title = document.getElementById("vTitle").value.trim();
     const org = document.getElementById("vOrg").value.trim();
     const phone = document.getElementById("vPhone").value.trim();
+    const workPhone = document.getElementById("vWorkPhone").value.trim(); // YENİ
     const email = document.getElementById("vEmail").value.trim();
+    const website = document.getElementById("vWebsite").value.trim(); // YENİ
     const address = document.getElementById("vAddress").value.trim();
+    const note = document.getElementById("vNote").value.trim(); // YENİ
 
     if (!nameInput) { alert("Lütfen isim girin."); return; }
 
     if (saveMode) {
-        const cardData = { name: nameInput, title, org, phone, email, address };
+        // Yeni alanları da kaydet
+        const cardData = { name: nameInput, title, org, phone, workPhone, email, website, address, note };
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
 
+    // --- GELİŞMİŞ vCARD OLUŞTURMA ---
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
     vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
     vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
+    
     if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
     if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
-    if (phone) vCard += `TEL:${phone}\n`;
+    
+    // Telefonlar: Cep ve İş ayrımı
+    if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\n`;
+    if (workPhone) vCard += `TEL;TYPE=WORK,VOICE:${workPhone}\n`; // YENİ
+    
     if (email) vCard += `EMAIL:${email}\n`;
+    if (website) vCard += `URL;CHARSET=UTF-8:${website}\n`; // YENİ
     if (address) vCard += `ADR;CHARSET=UTF-8:;;${address};;;;\n`;
+    if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; // YENİ
+    
     vCard += `END:VCARD`;
 
     function getInitials(fullName) {
@@ -324,7 +370,6 @@ function generateQr(saveMode) {
         return initials;
     }
 
-    // Seviyeler: H (Logo var), Q, M, L (En geniş kapasite)
     const levels = [QRCode.CorrectLevel.H, QRCode.CorrectLevel.Q, QRCode.CorrectLevel.M, QRCode.CorrectLevel.L];
 
     function tryGenerateLevel(index) {
@@ -347,7 +392,6 @@ function generateQr(saveMode) {
             const img = qrContainer.querySelector("img");
             if(img) { img.style.width = "100%"; img.style.height = "100%"; }
 
-            // Sadece H seviyesindeyse logo ekle
             if (levels[index] === QRCode.CorrectLevel.H) {
                 const initials = getInitials(nameInput);
                 if (initials) {
