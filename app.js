@@ -234,8 +234,8 @@ async function scanLoop() {
   requestAnimationFrame(scanLoop);
 }
 
-// --- YARDIMCI FONKSİYONLAR ---
 // YENİ: addResult fonksiyonuna resim parametresi (imageBase64) eklendi
+// YENİ: addResult fonksiyonu (Kopyalama ve Paylaşma eklendi)
 function addResult(text, imageBase64 = null) {
   const div = document.createElement("div");
 
@@ -249,30 +249,76 @@ function addResult(text, imageBase64 = null) {
     div.textContent = text;
   }
 
-  // YENİ: Eğer resim verisi geldiyse indirme butonu oluştur
+  // Butonları yan yana tutacak kapsayıcı
+  const btnGroup = document.createElement("div");
+  btnGroup.style.display = "flex";
+  btnGroup.style.gap = "8px"; // Butonlar arası boşluk
+  btnGroup.style.marginTop = "10px";
+  btnGroup.style.flexWrap = "wrap"; // Ekrana sığmazsa alt satıra geçsin
+
+  // 1. Resmi İndir Butonu (Eğer resim varsa)
   if (imageBase64) {
       const downloadBtn = document.createElement("button");
-      downloadBtn.innerHTML = "📷 Resmi İndir";
+      downloadBtn.innerHTML = "📷 İndir";
       downloadBtn.className = "secondary";
-      downloadBtn.style.marginTop = "10px";
-      downloadBtn.style.padding = "8px";
+      downloadBtn.style.padding = "8px 12px";
       downloadBtn.style.fontSize = "13px";
-      downloadBtn.style.width = "auto";
-      downloadBtn.style.display = "inline-block";
+      downloadBtn.style.flex = "1";
       
       downloadBtn.onclick = () => {
           const link = document.createElement("a");
           link.href = imageBase64;
-          link.download = "tarama_" + Date.now() + ".jpg"; // Otomatik isimlendirme
+          link.download = "tarama_" + Date.now() + ".jpg";
           link.click();
       };
-      
-      div.appendChild(document.createElement("br"));
-      div.appendChild(downloadBtn);
+      btnGroup.appendChild(downloadBtn);
   }
 
+  // 2. Metni Kopyala Butonu
+  const copyBtn = document.createElement("button");
+  copyBtn.innerHTML = "📋 Kopyala";
+  copyBtn.className = "secondary";
+  copyBtn.style.padding = "8px 12px";
+  copyBtn.style.fontSize = "13px";
+  copyBtn.style.flex = "1";
+  
+  copyBtn.onclick = async () => {
+      try {
+          await navigator.clipboard.writeText(text);
+          alert("Metin panoya kopyalandı!");
+      } catch (err) {
+          alert("Kopyalama başarısız oldu.");
+      }
+  };
+  btnGroup.appendChild(copyBtn);
+
+  // 3. Metni Paylaş Butonu (WhatsApp, Mail vb. için)
+  if (navigator.share) { // Cihaz paylaşımı destekliyorsa göster
+      const shareBtn = document.createElement("button");
+      shareBtn.innerHTML = "📤 Paylaş";
+      shareBtn.className = "secondary";
+      shareBtn.style.padding = "8px 12px";
+      shareBtn.style.fontSize = "13px";
+      shareBtn.style.flex = "1";
+      
+      shareBtn.onclick = async () => {
+          try {
+              await navigator.share({
+                  title: 'Tarama Sonucu',
+                  text: text
+              });
+          } catch (err) {
+              console.log("Paylaşım iptal edildi veya hata:", err);
+          }
+      };
+      btnGroup.appendChild(shareBtn);
+  }
+
+  div.appendChild(document.createElement("br"));
+  div.appendChild(btnGroup);
+
   resultList.appendChild(div);
-  resultList.scrollTop = resultList.scrollHeight;
+  resultList.scrollTop = resultList.scrollHeight; // Yeni sonuç eklendiğinde en alta kaydır
 }
 
 function isValidUrl(string) {

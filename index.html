@@ -21,6 +21,11 @@ body {
   background: #000;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #fff;
+  /* YENİ: Kalan boşluğu doldurmak için esnek yapı (Flexbox) eklendi */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden; 
 }
 
 #camera-container {
@@ -71,12 +76,13 @@ video {
 
 /* Sonuç alanı */
 #resultList {
-  height: 20vh;
+  flex: 1; /* Yüksekliği butonlara kadar uzatır */
   overflow-y: auto;
   background: #000; 
   padding: 10px;
   font-size: 15px;
   user-select: text; 
+  margin-bottom: 60px; /* En alttaki sabit butonların arkasında kalmaması için boşluk */
 }
 
 #resultList div {
