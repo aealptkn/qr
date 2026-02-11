@@ -306,9 +306,9 @@ function openQrGenerator() {
     document.getElementById("vEmail").value = savedData.email || "";
     document.getElementById("vAddress").value = savedData.address || "";
 
-    // Eğer veri varsa açılışta direkt QR göster
     if(savedData.name) {
-        setTimeout(generateAndSaveQr, 100);
+      // true parametresi göndererek 'benim kartım' olduğunu belirtiyoruz
+      setTimeout(() => generateQr(true), 100); 
     }
 }
 
@@ -316,9 +316,15 @@ function closeQrGenerator() {
     document.getElementById("qrGeneratorContainer").style.display = "none";
 }
 
-function generateAndSaveQr() {
-    const qrContainer = document.getElementById("generatedQrCode"); // Başta tanımla
-    qrContainer.innerHTML = ""; // Önceki QR varsa temizle
+// --- YENİ GELİŞMİŞ QR FONKSİYONLARI ---
+
+// saveMode: true ise hafızaya kaydeder, false ise sadece QR üretir
+function generateQr(saveMode) {
+    const qrContainer = document.getElementById("generatedQrCode");
+    const shareContainer = document.getElementById("shareQrContainer");
+    
+    qrContainer.innerHTML = ""; // Temizle
+    shareContainer.style.display = "none"; // Paylaş butonunu gizle
 
     const name = document.getElementById("vName").value.trim();
     const title = document.getElementById("vTitle").value.trim();
@@ -332,33 +338,75 @@ function generateAndSaveQr() {
         return; 
     }
 
-    const cardData = { name, title, org, phone, email, address };
-    localStorage.setItem("myCardData", JSON.stringify(cardData));
+    // EĞER KAYDET BUTONUNA BASILDIYSA HAFIZAYA YAZ
+    if (saveMode) {
+        const cardData = { name, title, org, phone, email, address };
+        localStorage.setItem("myCardData", JSON.stringify(cardData));
+    }
 
+    // Türkçe Karakter Destekli vCard Oluşturma
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
-    vCard += `N:${name};;;\n`;
-    vCard += `FN:${name}\n`;
-    if (org) vCard += `ORG:${org}\n`;
-    if (title) vCard += `TITLE:${title}\n`;
+    vCard += `N;CHARSET=UTF-8:${name};;;\n`;
+    vCard += `FN;CHARSET=UTF-8:${name}\n`;
+    if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
+    if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
     if (phone) vCard += `TEL:${phone}\n`;
     if (email) vCard += `EMAIL:${email}\n`;
-    if (address) vCard += `ADR:;;${address};;;;\n`;
+    if (address) vCard += `ADR;CHARSET=UTF-8:;;${address};;;;\n`;
     vCard += `END:VCARD`;
 
+    // QR Oluşturma
     requestAnimationFrame(() => {
         try {
+            // Türkçe karakterleri güvenli formata çevir
+            function toUtf8(str) { return unescape(encodeURIComponent(str)); }
+
             qrCodeObj = new QRCode(qrContainer, {
-                text: vCard,
+                text: toUtf8(vCard),
                 width: 180,
                 height: 180,
                 colorDark: "#000000",
                 colorLight: "#ffffff",
                 correctLevel: QRCode.CorrectLevel.M
             });
+
+            // QR oluştuktan hemen sonra Paylaş butonunu göster
+            setTimeout(() => {
+                if(qrContainer.querySelector("img")) {
+                    shareContainer.style.display = "flex";
+                }
+            }, 300);
+
         } catch (e) {
             console.error("QR HATASI:", e);
-            alert("QR oluşturulurken hata oluştu.");
+            alert("QR oluşturulurken hata oluştu. qrcode.min.js yüklü mü?");
         }
     });
 }
 
+// QR Resmini Paylaşma Fonksiyonu
+async function shareQrImage() {
+    const qrContainer = document.getElementById("generatedQrCode");
+    const img = qrContainer.querySelector("img"); // QR kütüphanesinin ürettiği resim
+
+    if (!img || !img.src) { alert("QR kodu henüz oluşmadı."); return; }
+
+    try {
+        // Base64 verisini dosyaya çevir
+        const blob = await (await fetch(img.src)).blob();
+        const file = new File([blob], "kartvizit_qr.png", { type: "image/png" });
+
+        // Web Share API ile paylaş
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                title: 'QR Kartvizit',
+                text: 'İletişim bilgilerim ektedir.',
+                files: [file]
+            });
+        } else {
+            alert("Cihazınız görsel paylaşımını desteklemiyor.");
+        }
+    } catch (error) {
+        console.log("Paylaşım hatası:", error);
+    }
+}

@@ -25,9 +25,9 @@ body {
   display: flex;
   flex-direction: column;
   
-  /* DÜZELTME 1: iPhone'da butonların altta kalmasını engelleyen kod */
-  height: 100vh; /* Eski tarayıcılar için */
-  height: 100dvh; /* Yeni nesil (iPhone/Android) için Dinamik Yükseklik */
+  /* iPhone ve Modern Androidler için Yükseklik Ayarı */
+  height: 100vh; 
+  height: 100dvh; 
   
   overflow: hidden; 
 }
@@ -172,13 +172,11 @@ video {
 .controls {
   display: flex;
   justify-content: space-around;
-  padding: 10px 0; /* Üst dolguyu biraz artırdık */
+  padding: 10px 0; 
   background: rgba(28, 28, 30, 0.95); 
   z-index: 1000;
-  
-  /* DÜZELTME 2: S25 ve iPhone alt çizgisi için boşluğu artırdık (5px -> 20px) */
+  /* S25 ve iPhone alt çizgisi için güvenli boşluk */
   padding-bottom: calc(20px + env(safe-area-inset-bottom));
-  
   flex-shrink: 0; 
 }
 
@@ -199,7 +197,7 @@ video {
   opacity: 0.7;
 }
 
-/* KARTVİZİT MODAL STİLİ */
+/* KARTVİZİT MODAL STİLİ (GÜNCELLENDİ) */
 #qrGeneratorContainer {
     display: none;
     position: fixed;
@@ -215,7 +213,7 @@ video {
     background: #1c1c1e;
     text-align: center;
     border-bottom: 1px solid #38383a;
-    padding-top: calc(10px + env(safe-area-inset-top)); /* Çentik için ayar */
+    padding-top: calc(10px + env(safe-area-inset-top)); 
 }
 .qr-display {
     background: white;
@@ -251,19 +249,47 @@ video {
     padding: 8px 15px;
     border-radius: 20px;
     cursor: pointer;
-    margin-top: env(safe-area-inset-top); /* Çentik ayarı */
+    margin-top: env(safe-area-inset-top);
 }
-.save-qr-btn {
-    background: #0a84ff;
-    color: white;
+
+/* YENİ BUTON STİLLERİ */
+.qr-action-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+.qr-btn {
+    flex: 1;
     padding: 12px;
     border: none;
     border-radius: 8px;
-    font-size: 16px;
+    font-size: 14px;
     cursor: pointer;
     font-weight: bold;
+    color: white;
 }
+.btn-save { background: #0a84ff; } /* Mavi */
+.btn-gen { background: #3a3a3c; }  /* Gri */
 
+/* QR Paylaş Butonu */
+#shareQrContainer {
+    display: none;
+    justify-content: center;
+    margin-top: -10px;
+    margin-bottom: 10px;
+}
+.share-icon-btn {
+    background: transparent;
+    color: #0a84ff;
+    border: 1px solid #0a84ff;
+    padding: 5px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
 </style>
 </head>
 
@@ -306,6 +332,12 @@ video {
     </div>
     
     <div class="qr-display" id="generatedQrCode"></div>
+    
+    <div id="shareQrContainer">
+        <button class="share-icon-btn" onclick="shareQrImage()">
+            📤 Görseli Paylaş
+        </button>
+    </div>
 
     <div class="qr-form">
         <input type="text" id="vName" placeholder="Ad Soyad" />
@@ -315,7 +347,10 @@ video {
         <input type="email" id="vEmail" placeholder="E-Posta Adresi" />
         <input type="text" id="vAddress" placeholder="Adres / Web Sitesi" />
         
-        <button class="save-qr-btn" onclick="generateAndSaveQr()">💾 Bilgileri Kaydet ve QR Oluştur</button>
+        <div class="qr-action-row">
+            <button class="qr-btn btn-save" onclick="generateQr(true)">💾 Kaydet ve Üret</button>
+            <button class="qr-btn btn-gen" onclick="generateQr(false)">⚡ Sadece Üret</button>
+        </div>
     </div>
 </div>
 
