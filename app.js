@@ -317,6 +317,7 @@ function closeQrGenerator() {
 }
 
 function generateAndSaveQr() {
+
     const name = document.getElementById("vName").value.trim();
     const title = document.getElementById("vTitle").value.trim();
     const org = document.getElementById("vOrg").value.trim();
@@ -324,17 +325,14 @@ function generateAndSaveQr() {
     const email = document.getElementById("vEmail").value.trim();
     const address = document.getElementById("vAddress").value.trim();
 
-    //console.log("Container:", qrContainer);
-    //console.log("QRCode:", QRCode);
+    if (!name) { 
+        alert("Lütfen en azından bir isim girin."); 
+        return; 
+    }
 
-    if (!name) { alert("Lütfen en azından bir isim girin."); return; }
-
-    // Verileri tarayıcı hafızasına kaydet
     const cardData = { name, title, org, phone, email, address };
     localStorage.setItem("myCardData", JSON.stringify(cardData));
 
-    // vCard (VCF) Formatını Oluştur
-    // Bu format sayesinde tarayan kişi "Rehbere Ekle" diyebilir
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
     vCard += `N:${name};;;\n`;
     vCard += `FN:${name}\n`;
@@ -345,24 +343,22 @@ function generateAndSaveQr() {
     if(address) vCard += `ADR:;;${address};;;;\n`;
     vCard += `END:VCARD`;
 
-    // Önceki QR varsa temizle
     const qrContainer = document.getElementById("generatedQrCode");
     qrContainer.innerHTML = "";
 
-    // Modal render edilsin diye bir frame bekliyoruz
     requestAnimationFrame(() => {
         try {
             qrCodeObj = new QRCode(qrContainer, {
                 text: vCard,
                 width: 180,
                 height: 180,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.M
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
             });
         } catch (e) {
             console.error("QR HATASI:", e);
-            alert("QR oluşturulurken hata oluştu. Console'a bakın.");
+            alert("QR oluşturulurken hata oluştu.");
         }
     });
 }
