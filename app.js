@@ -32,6 +32,10 @@ let currentFacingMode = "environment";
 const beep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
 const codeReader = new ZXing.BrowserMultiFormatReader();
 
+// --- CANVAS TARAMA ---
+const scanCanvas = document.createElement("canvas");
+const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
+
 // --- BUTON OLAYLARI ---
 startBtn.onclick = () => { serialMode = false; startScanner(); };
 serialBtn.onclick = () => { serialMode = true; startScanner(); };
@@ -106,44 +110,91 @@ async function startScanner() {
       }
     },500);
 
-    // QR/Barkod tarama
-    codeReader.decodeFromVideoElement(video).then(result=>{
-      if(result){
-        if(serialMode){
-          const now = Date.now();
-          if(now - lastScanTime > scanCooldown){
-            addResult(result.text); beep.play().catch(()=>{}); navigator.vibrate?.(100);
-            lastScanTime = now;
-          }
-        } else {
-          if(result.text !== lastScan){
-            addResult(result.text); beep.play().catch(()=>{}); navigator.vibrate?.(100);
-            lastScan = result.text;
-          }
-        }
-      }
-    }).catch(err=>console.log("Tarama hatası veya henüz sonuç yok:", err));
+    scanLoop(); // Döngüyü başlat
 
   } catch(err){
     alert("Kamera açılamadı: "+err.message);
   }
 }
 
+// --- TARAMA DÖNGÜSÜ (scanArea bazlı) ---
+async function scanLoop() {
+  if(!scanning) return;
+  requestAnimationFrame(scanLoop);
+
+  if(!video.videoWidth || !video.videoHeight) return;
+
+  const rect = scanArea.getBoundingClientRect();
+  const vRect = video.getBoundingClientRect();
+
+  // Videonun ölçek ve offset değerleri
+  const scale = Math.max(vRect.width / video.videoWidth, vRect.height / video.videoHeight);
+  const offsetX = (vRect.width - video.videoWidth * scale)/2;
+  const offsetY = (vRect.height - video.videoHeight * scale)/2;
+
+  const boxX = rect.left - vRect.left;
+  const boxY = rect.top - vRect.top;
+
+  const nativeX = (boxX - offsetX)/scale;
+  const nativeY = (boxY - offsetY)/scale;
+  const nativeWidth = rect.width/scale;
+  const nativeHeight = rect.height/scale;
+
+  scanCanvas.width = nativeWidth;
+  scanCanvas.height = nativeHeight;
+
+  scanCtx.drawImage(video, nativeX, nativeY, nativeWidth, nativeHeight, 0, 0, nativeWidth, nativeHeight);
+
+  try {
+    const result = await codeReader.decodeFromCanvas(scanCanvas);
+    if(result){
+      const value = result.text || result.getText();
+      const currentImageBase64 = scanCanvas.toDataURL("image/jpeg",0.9);
+
+      if(serialMode){
+        const now = Date.now();
+        if(now - lastScanTime > scanCooldown){
+          addResult(value, currentImageBase64);
+          beep.play().catch(()=>{}); navigator.vibrate?.(100);
+          lastScanTime = now;
+        }
+      } else {
+        if(value !== lastScan){
+          addResult(value, currentImageBase64);
+          beep.play().catch(()=>{}); navigator.vibrate?.(100);
+          lastScan = value;
+        }
+      }
+    }
+  } catch(e){
+    // Okuyamazsa sessiz geç
+  }
+}
+
 // --- YARDIMCI FONKSİYONLAR ---
-function addResult(text){
-  const div = document.createElement("div");
+function addResult(text,imageBase64=null){
+  const div=document.createElement("div");
   if(isValidUrl(text)){
-    const a = document.createElement("a"); a.href=text; a.target="_blank"; a.textContent=text; div.appendChild(a);
+    const a=document.createElement("a"); a.href=text; a.target="_blank"; a.textContent=text; div.appendChild(a);
   } else div.textContent=text;
+
   const btnGroup=document.createElement("div"); btnGroup.style.display="flex"; btnGroup.style.gap="8px"; btnGroup.style.marginTop="10px"; btnGroup.style.flexWrap="wrap";
 
-  const copyBtn=document.createElement("button"); copyBtn.innerHTML="📋 Kopyala"; copyBtn.style.flex="1"; copyBtn.onclick=async()=>{ try{ await navigator.clipboard.writeText(text); alert("Metin panoya kopyalandı!"); } catch{ alert("Kopyalama başarısız."); } };
+  if(imageBase64){
+    const downloadBtn=document.createElement("button"); downloadBtn.innerHTML="📷 İndir"; downloadBtn.style.flex="1";
+    downloadBtn.onclick=()=>{ const link=document.createElement("a"); link.href=imageBase64; link.download="tarama_"+Date.now()+".jpg"; link.click(); };
+    btnGroup.appendChild(downloadBtn);
+  }
+
+  const copyBtn=document.createElement("button"); copyBtn.innerHTML="📋 Kopyala"; copyBtn.style.flex="1";
+  copyBtn.onclick=async()=>{ try{ await navigator.clipboard.writeText(text); alert("Metin panoya kopyalandı!"); } catch{ alert("Kopyalama başarısız."); } };
   btnGroup.appendChild(copyBtn);
+
   div.appendChild(document.createElement("br")); div.appendChild(btnGroup);
   resultList.appendChild(div); resultList.scrollTop=resultList.scrollHeight;
 }
 
-function isValidUrl(string){ try{ new URL(string); return true; }catch{ return false; } }
+function isValidUrl(string){ try{ new URL(string); return true; } catch{ return false; } }
 
 async function toggleFlash(){ if(!track) return; const caps=track.getCapabilities(); if(!caps.torch){ alert("Flash desteklenmiyor."); return; } torchOn=!torchOn; await track.applyConstraints({advanced:[{torch:torchOn}]}); }
 
