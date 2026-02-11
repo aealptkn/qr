@@ -33,9 +33,7 @@ let currentFacingMode = "environment";
 const beep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
 const codeReader = new ZXing.BrowserMultiFormatReader();
 
-// --- CANVAS TARAMA ---
-const scanCanvas = document.createElement("canvas");
-const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
+// DİKKAT: Eski Canvas oluşturma (scanCanvas) bölümü senin çalışan mantığın lehine silindi.
 
 // --- BUTON OLAYLARI ---
 startBtn.onclick = () => { 
@@ -113,6 +111,7 @@ async function startScanner() {
   zoomContainer.style.display = "none";
 
   try {
+    // 1. Kamerayı senin "Kamera Çevir" ayarlarına göre açıyoruz
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:currentFacingMode } });
     video.srcObject = stream; track = stream.getVideoTracks()[0]; video.play();
 
@@ -126,73 +125,37 @@ async function startScanner() {
       }
     },500);
 
-    scanLoop(); 
+    // 2. SENİN %100 ÇALIŞAN MANTIĞIN BURADA ENTEGRE EDİLDİ
+    // (scanLoop fonksiyonunu ve kanvas çizimini sildik, ZXing kendi okuyor)
+    codeReader.decodeFromStream(stream, video, (result, err) => {
+        if (result) {
+            const value = result.text;
+            
+            // Senin mevcut seri okuma ve normal okuma kuralların
+            if(serialMode){
+              const now = Date.now();
+              if(now - lastScanTime > scanCooldown){
+                addResult(value, null); // Kanvas sildiğimiz için fotoğraf kaydı yok, metin geliyor
+                beep.play().catch(()=>{}); navigator.vibrate?.(100);
+                lastScanTime = now;
+              }
+            } else {
+              if(value !== lastScan){
+                addResult(value, null);
+                beep.play().catch(()=>{}); navigator.vibrate?.(100);
+                lastScan = value;
+                stopCamera(); 
+              }
+            }
+        }
+    });
 
   } catch(err){
     alert("Kamera açılamadı: "+err.message);
   }
 }
 
-// --- TARAMA DÖNGÜSÜ ---
-async function scanLoop() {
-  if(!scanning) return;
-
-  if(!video.videoWidth || !video.videoHeight) {
-      // Video hazır değilse biraz bekle ve tekrar dene
-      setTimeout(scanLoop, 100);
-      return;
-  }
-
-  const rect = scanArea.getBoundingClientRect();
-  const vRect = video.getBoundingClientRect();
-
-  const scale = Math.max(vRect.width / video.videoWidth, vRect.height / video.videoHeight);
-  const offsetX = (vRect.width - video.videoWidth * scale)/2;
-  const offsetY = (vRect.height - video.videoHeight * scale)/2;
-
-  const boxX = rect.left - vRect.left;
-  const boxY = rect.top - vRect.top;
-
-  const nativeX = (boxX - offsetX)/scale;
-  const nativeY = (boxY - offsetY)/scale;
-  const nativeWidth = rect.width/scale;
-  const nativeHeight = rect.height/scale;
-
-  scanCanvas.width = nativeWidth;
-  scanCanvas.height = nativeHeight;
-
-  scanCtx.drawImage(video, nativeX, nativeY, nativeWidth, nativeHeight, 0, 0, nativeWidth, nativeHeight);
-
-  try {
-    const result = await codeReader.decodeFromCanvas(scanCanvas);
-    if(result){
-      const value = result.text || result.getText();
-      const currentImageBase64 = scanCanvas.toDataURL("image/jpeg",0.9);
-
-      if(serialMode){
-        const now = Date.now();
-        if(now - lastScanTime > scanCooldown){
-          addResult(value, currentImageBase64);
-          beep.play().catch(()=>{}); navigator.vibrate?.(100);
-          lastScanTime = now;
-        }
-      } else {
-        if(value !== lastScan){
-          addResult(value, currentImageBase64);
-          beep.play().catch(()=>{}); navigator.vibrate?.(100);
-          lastScan = value;
-          stopCamera(); 
-          return; 
-        }
-      }
-    }
-  } catch(e){
-    // Okuyamazsa sessiz geç
-  }
-
-  // Tarama işlemini güvenli bir hızda tekrarla
-  setTimeout(scanLoop, 100);
-}
+// DİKKAT: Eski async function scanLoop() tamamen silindi.
 
 // --- YARDIMCI FONKSİYONLAR ---
 function addResult(text, imageBase64=null){
@@ -277,4 +240,10 @@ function isValidUrl(string){ try{ new URL(string); return true; } catch{ return 
 
 async function toggleFlash(){ if(!track) return; const caps=track.getCapabilities(); if(!caps.torch){ alert("Flash desteklenmiyor."); return; } torchOn=!torchOn; await track.applyConstraints({advanced:[{torch:torchOn}]}); }
 
-function stopCamera(){ scanning=false; torchOn=false; zoomContainer.style.display="none"; stream?.getTracks().forEach(t=>t.stop()); }
+function stopCamera(){ 
+  scanning=false; 
+  torchOn=false; 
+  zoomContainer.style.display="none"; 
+  stream?.getTracks().forEach(t=>t.stop()); 
+  codeReader.reset(); // Tarayıcının arkaplanda çalışmasını durdurmak için eklendi
+}
