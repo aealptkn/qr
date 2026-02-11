@@ -106,10 +106,10 @@ doCropBtn.addEventListener('click', () => {
     try {
       // Çevrimdışı Tesseract ayarları
       const result = await Tesseract.recognize(blob, 'tur', {
-        logger: m => console.log(m),
-        workerPath: './worker.min.js',
-        corePath: './tesseract-core.wasm.js',
-        langPath: './'
+          logger: m => console.log(m),
+          workerPath: './worker.min.js',       // Worker JS
+          corePath: './tesseract-core.wasm.js',// Core JS + WASM
+          langPath: './'                        // dil dosyaları buradan yüklenecek
       });
 
       const extractedText = result.data.text.trim();
