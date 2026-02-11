@@ -324,6 +324,9 @@ function generateAndSaveQr() {
     const email = document.getElementById("vEmail").value.trim();
     const address = document.getElementById("vAddress").value.trim();
 
+    console.log("Container:", qrContainer);
+    console.log("QRCode:", QRCode);
+
     if (!name) { alert("Lütfen en azından bir isim girin."); return; }
 
     // Verileri tarayıcı hafızasına kaydet
