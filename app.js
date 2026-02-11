@@ -102,7 +102,7 @@ if (rotateCropBtn) {
 doCropBtn.addEventListener('click', async () => {
   if(!cropper) return;
   cropContainer.style.display = 'none';
-  addResult("Kırpılan alan işleniyor..."); 
+  //addResult("Kırpılan alan işleniyor..."); 
   const canvas = cropper.getCroppedCanvas({ maxWidth:2048, maxHeight:2048, imageSmoothingQuality:'high' });
   canvas.toBlob(async blob => {
     cropper.destroy();
