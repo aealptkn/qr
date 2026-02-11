@@ -84,13 +84,37 @@ video {
 }
 
 #resultList {
-  flex: 1; 
-  overflow-y: auto;
+  flex: 1; /* Ortadaki tüm boşluğu kaplar */
+  overflow-y: auto; /* Sadece bu alan kendi içinde kayar */
   background: #000; 
   padding: 10px;
   font-size: 15px;
   user-select: text; 
-  padding-bottom: 60px; 
+  /* padding-bottom: 60px; (Bunu sildik, artık gerek yok) */
+}
+
+/* YENİ: Kopyala ve Paylaş butonları için alan */
+.mini-controls {
+  display: flex;
+  justify-content: flex-start; /* Sola yaslı */
+  gap: 8px;
+  padding: 5px 10px;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.mini-controls button {
+  font-size: 11px; /* Olabildiğince küçük font */
+  padding: 4px 8px; /* Mevcut butonların tam yarısı yükseklikte */
+  background: #3a3a3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mini-controls #miniShareBtn {
+  background: #0a84ff;
 }
 
 #resultList div {
@@ -143,16 +167,14 @@ video {
 .cropper-point { background-color: #0a84ff; }
 
 .controls {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
+  /* position: fixed; ve bottom: 0; sildik */
   display: flex;
   justify-content: space-around;
   padding: 5px 0;
   background: rgba(28, 28, 30, 0.95); 
   z-index: 1000;
   padding-bottom: calc(5px + env(safe-area-inset-bottom));
+  flex-shrink: 0; /* Butonların ezilmesini engeller */
 }
 
 .controls button {
@@ -190,6 +212,11 @@ video {
 <div class="info">Lütfen telefonu 15–20 cm uzaklıkta tutun</div>
 
 <div id="resultList"></div>
+
+<div class="mini-controls">
+  <button id="miniCopyBtn">📋 Kopyala</button>
+  <button id="miniShareBtn" style="display: none;">📤 Paylaş</button>
+</div>
 
 <div class="controls">
   <button id="startBtn" title="QR / Barkod Tarama">🔍</button>

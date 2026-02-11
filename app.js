@@ -11,6 +11,8 @@ const scanArea = document.getElementById("scanArea");
 const ocrInput = document.getElementById("ocrInput");
 const zoomContainer = document.getElementById("zoomContainer"); 
 const zoomSlider = document.getElementById("zoomSlider"); 
+const miniCopyBtn = document.getElementById("miniCopyBtn");
+const miniShareBtn = document.getElementById("miniShareBtn");
 
 // --- KIRPMA ELEMENTLERİ ---
 const cropContainer = document.getElementById('cropContainer');
@@ -36,6 +38,24 @@ const codeReader = new ZXing.BrowserMultiFormatReader();
 // DİKKAT: Eski Canvas oluşturma (scanCanvas) bölümü senin çalışan mantığın lehine silindi.
 
 // --- BUTON OLAYLARI ---
+if (navigator.share) {
+    miniShareBtn.style.display = "inline-block";
+}
+
+miniCopyBtn.onclick = async () => {
+    const texts = Array.from(document.querySelectorAll('.scanned-text')).map(el => el.textContent).join('\n\n');
+    if(!texts) { alert("Kopyalanacak veri yok!"); return; }
+    try { await navigator.clipboard.writeText(texts); alert("Tüm liste kopyalandı!"); } 
+    catch { alert("Kopyalama başarısız."); }
+};
+
+miniShareBtn.onclick = async () => {
+    const texts = Array.from(document.querySelectorAll('.scanned-text')).map(el => el.textContent).join('\n\n');
+    if(!texts) { alert("Paylaşılacak veri yok!"); return; }
+    try { await navigator.share({ title: 'Tarama Sonuçları', text: texts }); } 
+    catch (err) { console.log("Paylaşım iptal edildi:", err); }
+};
+
 startBtn.onclick = () => { 
   if (scanning && !serialMode) { stopCamera(); return; } 
   serialMode = false; 
@@ -187,52 +207,6 @@ function addResult(text, imageBase64=null){
   }
 
   resultList.appendChild(div);
-
-  let globalControls = document.getElementById("globalControls");
-  if (!globalControls) {
-      globalControls = document.createElement("div");
-      globalControls.id = "globalControls";
-      globalControls.style.display = "flex";
-      globalControls.style.gap = "10px";
-      globalControls.style.marginTop = "15px";
-      globalControls.style.padding = "10px 0";
-
-      const copyBtn = document.createElement("button");
-      copyBtn.innerHTML = "📋 Tümünü Kopyala";
-      copyBtn.style.flex = "1";
-      copyBtn.style.padding = "12px";
-      copyBtn.style.backgroundColor = "#3a3a3c";
-      copyBtn.style.color = "white";
-      copyBtn.style.border = "none";
-      copyBtn.style.borderRadius = "8px";
-      copyBtn.onclick = async () => {
-          const texts = Array.from(document.querySelectorAll('.scanned-text')).map(el => el.textContent).join('\n\n');
-          if(!texts) return;
-          try { await navigator.clipboard.writeText(texts); alert("Tüm liste kopyalandı!"); } 
-          catch { alert("Kopyalama başarısız."); }
-      };
-      globalControls.appendChild(copyBtn);
-
-      if (navigator.share) {
-          const shareBtn = document.createElement("button");
-          shareBtn.innerHTML = "📤 Tümünü Paylaş";
-          shareBtn.style.flex = "1";
-          shareBtn.style.padding = "12px";
-          shareBtn.style.backgroundColor = "#0a84ff";
-          shareBtn.style.color = "white";
-          shareBtn.style.border = "none";
-          shareBtn.style.borderRadius = "8px";
-          shareBtn.onclick = async () => {
-              const texts = Array.from(document.querySelectorAll('.scanned-text')).map(el => el.textContent).join('\n\n');
-              if(!texts) return;
-              try { await navigator.share({ title: 'Tarama Sonuçları', text: texts }); } 
-              catch (err) { console.log("Paylaşım iptal edildi:", err); }
-          };
-          globalControls.appendChild(shareBtn);
-      }
-  }
-  
-  resultList.appendChild(globalControls);
   resultList.scrollTop = resultList.scrollHeight;
 }
 
@@ -298,10 +272,6 @@ async function bagimliliklariKontrolEt() {
         localStorage.setItem("offlineKontrolOnaylandi", "true");
     }
 }
-
-window.addEventListener('load', () => {
-    setTimeout(bagimliliklariKontrolEt, 1500);
-});
 
 // Sayfa yüklendiğinde kontrolü otomatik başlat
 window.addEventListener('load', () => {
