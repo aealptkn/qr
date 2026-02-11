@@ -17,7 +17,7 @@ const cropContainer = document.getElementById('cropContainer');
 const imageToCrop = document.getElementById('imageToCrop');
 const doCropBtn = document.getElementById('doCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
-const rotateCropBtn = document.getElementById('rotateCropBtn'); // YENİ: Döndür Butonu
+const rotateCropBtn = document.getElementById('rotateCropBtn'); // YENİ EKLENEN BUTON
 let cropper;
 
 // --- DEĞİŞKENLER ---
@@ -37,21 +37,22 @@ const codeReader = new ZXing.BrowserMultiFormatReader();
 const scanCanvas = document.createElement("canvas");
 const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
 
-// --- BUTON OLAYLARI (Aç/Kapat Toggle Mantığı Eklendi) ---
+// --- BUTON OLAYLARI (Aç/Kapat Toggle Mantığı) ---
 startBtn.onclick = () => { 
-  if (scanning && !serialMode) { stopCamera(); return; } // Açıksa kapat
+  if (scanning && !serialMode) { stopCamera(); return; } // Açıksa Kapatır
   serialMode = false; 
   startScanner(); 
 };
 
 serialBtn.onclick = () => { 
-  if (scanning && serialMode) { stopCamera(); return; } // Açıksa kapat
+  if (scanning && serialMode) { stopCamera(); return; } // Açıksa Kapatır
   serialMode = true; 
   startScanner(); 
 };
 
 flashBtn.onclick = toggleFlash;
-clearBtn.onclick = () => { resultList.innerHTML = ""; lastScan = ""; }; // Sadece burası listeyi temizler
+// LİSTEYİ SADECE TEMİZLE BUTONU SİLER
+clearBtn.onclick = () => { resultList.innerHTML = ""; lastScan = ""; }; 
 switchBtn.onclick = () => { currentFacingMode = currentFacingMode === "environment" ? "user" : "environment"; if(scanning) startScanner(); };
 ocrBtn.onclick = () => { stopCamera(); ocrInput.click(); };
 
@@ -75,15 +76,17 @@ cancelCropBtn.addEventListener('click', () => {
   if(cropper) cropper.destroy();
 });
 
-// YENİ: Resmi 90 Derece Döndürme
-rotateCropBtn.addEventListener('click', () => {
-  if(cropper) cropper.rotate(90);
-});
+// Resim Döndürme
+if (rotateCropBtn) {
+    rotateCropBtn.addEventListener('click', () => {
+      if(cropper) cropper.rotate(90);
+    });
+}
 
 doCropBtn.addEventListener('click', async () => {
   if(!cropper) return;
   cropContainer.style.display = 'none';
-  addResult("Kırpılan alan işleniyor..."); // Eski listeye eklenir, listeyi silmez
+  addResult("Kırpılan alan işleniyor..."); 
   const canvas = cropper.getCroppedCanvas({ maxWidth:2048, maxHeight:2048, imageSmoothingQuality:'high' });
   canvas.toBlob(async blob => {
     cropper.destroy();
@@ -108,14 +111,13 @@ doCropBtn.addEventListener('click', async () => {
 async function startScanner() {
   if(scanning) stopCamera();
   scanning = true;
-  lastScanTime = 0; // lastScan bilerek sıfırlanmadı ki aynı QR'ı üst üste okumasın
+  lastScanTime = 0; 
   zoomContainer.style.display = "none";
 
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:currentFacingMode } });
     video.srcObject = stream; track = stream.getVideoTracks()[0]; video.play();
 
-    // Zoom
     setTimeout(() => {
       const caps = track.getCapabilities();
       if(caps.zoom){
@@ -133,14 +135,12 @@ async function startScanner() {
   }
 }
 
-// --- TARAMA DÖNGÜSÜ ---
+// --- TARAMA DÖNGÜSÜ (Senin Çalışan Formülün) ---
 async function scanLoop() {
   if(!scanning) return;
+  requestAnimationFrame(scanLoop);
 
-  if(!video.videoWidth || !video.videoHeight) {
-      requestAnimationFrame(scanLoop);
-      return;
-  }
+  if(!video.videoWidth || !video.videoHeight) return;
 
   const rect = scanArea.getBoundingClientRect();
   const vRect = video.getBoundingClientRect();
@@ -180,18 +180,13 @@ async function scanLoop() {
           addResult(value, currentImageBase64);
           beep.play().catch(()=>{}); navigator.vibrate?.(100);
           lastScan = value;
-          stopCamera(); // YENİ: Tekli taramada okuduktan sonra kamerayı kapatır
-          return; // Döngüden çık
+          stopCamera(); // Tekli taramada kodu bulduğunda hemen kamerayı kapatır
         }
       }
     }
   } catch(e){
     // Okuyamazsa sessiz geç
   }
-
-  setTimeout(() => {
-    requestAnimationFrame(scanLoop);
-  }, 100);
 }
 
 // --- YARDIMCI FONKSİYONLAR ---
@@ -209,8 +204,6 @@ function addResult(text, imageBase64=null){
   }
   div.appendChild(textSpan);
 
-  // Küçük resim indirme butonu her veride kalmaya devam etsin mi? 
-  // Sadece metin paylaşılacağı için resmi almak isteyen buradan alsın.
   if(imageBase64){
     const downloadBtn = document.createElement("button"); 
     downloadBtn.innerHTML = "📷 İndir"; 
@@ -227,7 +220,7 @@ function addResult(text, imageBase64=null){
 
   resultList.appendChild(div);
 
-  // YENİ: Toplu Kopyala ve Paylaş Butonları SADECE Listenin En Altında
+  // Kopyala ve Paylaş Butonları En Sona İtiliyor
   let globalControls = document.getElementById("globalControls");
   if (!globalControls) {
       globalControls = document.createElement("div");
@@ -237,7 +230,6 @@ function addResult(text, imageBase64=null){
       globalControls.style.marginTop = "15px";
       globalControls.style.padding = "10px 0";
 
-      // Kopyala Butonu
       const copyBtn = document.createElement("button");
       copyBtn.innerHTML = "📋 Tümünü Kopyala";
       copyBtn.style.flex = "1";
@@ -254,7 +246,6 @@ function addResult(text, imageBase64=null){
       };
       globalControls.appendChild(copyBtn);
 
-      // Paylaş (Yolla) Butonu - Sadece destekleyen cihazlarda (Mobil/Modern Tarayıcılar) çıkar
       if (navigator.share) {
           const shareBtn = document.createElement("button");
           shareBtn.innerHTML = "📤 Tümünü Paylaş";
@@ -274,7 +265,6 @@ function addResult(text, imageBase64=null){
       }
   }
   
-  // Bu kod buton grubunu her zaman listenin en altına iter
   resultList.appendChild(globalControls);
   resultList.scrollTop = resultList.scrollHeight;
 }
