@@ -21,7 +21,7 @@ body {
   background: #000;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #fff;
-  /* YENİ: Kalan boşluğu doldurmak için esnek yapı (Flexbox) eklendi */
+  /* Ekranı tam kapla ve esnek yapı kur */
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -31,12 +31,16 @@ body {
 #camera-container {
   position: relative;
   width: 100%;
-  max-height: 55vh;
+  flex: 0 0 33.33vh; /* Tam olarak ekranın 1/3'ü */
+  max-height: 33.33vh;
   overflow: hidden;
+  background: #111;
 }
 
 video {
   width: 100%;
+  height: 100%;
+  object-fit: cover; /* Videonun belirtilen 1/3 alana bozulmadan yayılmasını sağlar */
 }
 
 .overlay {
@@ -56,11 +60,10 @@ video {
   box-sizing: border-box;
 }
 
-/* Zoom Çubuğu */
 #zoomContainer {
   display: none;
   background: #1c1c1e;
-  padding: 10px 20px;
+  padding: 5px 20px; /* Biraz daraltıldı ki listeden alan çalmasın */
   text-align: center;
   border-bottom: 1px solid #38383a;
 }
@@ -74,15 +77,21 @@ video {
   width: 100%;
 }
 
-/* Sonuç alanı */
+.info {
+  text-align: center;
+  font-size: 13px;
+  padding: 5px; /* Listeden alan çalmaması için küçültüldü */
+  color: #8e8e93; 
+}
+
 #resultList {
-  flex: 1; /* Yüksekliği butonlara kadar uzatır */
+  flex: 1; /* Ekranın kalan tüm 2/3 alanını kaplar */
   overflow-y: auto;
   background: #000; 
   padding: 10px;
   font-size: 15px;
   user-select: text; 
-  margin-bottom: 60px; /* En alttaki sabit butonların arkasında kalmaması için boşluk */
+  padding-bottom: 60px; /* Alttaki butonların arkasında kalmaması için boşluk */
 }
 
 #resultList div {
@@ -97,14 +106,6 @@ video {
   text-decoration: none;
 }
 
-.info {
-  text-align: center;
-  font-size: 13px;
-  padding: 10px 5px;
-  color: #8e8e93; 
-}
-
-/* Cropper */
 #cropContainer {
   display: none; 
   position: fixed;
@@ -142,8 +143,6 @@ video {
 .cropper-view-box, .cropper-face { outline: 2px solid #0a84ff; }
 .cropper-point { background-color: #0a84ff; }
 
-/* --------------------------- */
-/* Butonlar: ikonlu, en alt, tek sıra */
 .controls {
   position: fixed;
   bottom: 0;
@@ -152,15 +151,16 @@ video {
   display: flex;
   justify-content: space-around;
   padding: 5px 0;
-  background: rgba(28, 28, 30, 0.9); 
+  background: rgba(28, 28, 30, 0.95); 
   z-index: 1000;
+  padding-bottom: calc(5px + env(safe-area-inset-bottom));
 }
 
 .controls button {
   flex: 1;
   margin: 0 2px;
   padding: 8px 0;
-  font-size: 20px; /* Ekranda 2 harf yüksekliğinde */
+  font-size: 20px; 
   border: none;
   border-radius: 10px;
   background: #0a84ff;
@@ -192,13 +192,13 @@ video {
 
 <div id="resultList"></div>
 
-<!-- Butonlar: ikonlu ve tek sıra -->
 <div class="controls">
   <button id="startBtn" title="QR / Barkod Tarama">🔍</button>
   <button id="serialBtn" title="Seri Tarama">📋</button>
   <button id="ocrBtn" title="OCR">📝</button>
   <button id="switchBtn" title="Kamera Çevir">🔄</button>
   <button id="flashBtn" title="Flash Aç/Kapat">⚡</button>
+  <button id="clearBtn" title="Listeyi Temizle">🗑️</button>
 </div>
 
 <input type="file" id="ocrInput" accept="image/*" style="display: none;" />

@@ -3,13 +3,14 @@ const video = document.getElementById("video");
 const startBtn = document.getElementById("startBtn");
 const serialBtn = document.getElementById("serialBtn");
 const ocrBtn = document.getElementById("ocrBtn");
-const switchBtn = document.getElementById("switchBtn"); // YENİ
+const switchBtn = document.getElementById("switchBtn"); 
 const flashBtn = document.getElementById("flashBtn");
+const clearBtn = document.getElementById("clearBtn"); // YENİ: Temizle butonu tanımlandı
 const resultList = document.getElementById("resultList");
 const scanArea = document.getElementById("scanArea");
 const ocrInput = document.getElementById("ocrInput");
-const zoomContainer = document.getElementById("zoomContainer"); // YENİ
-const zoomSlider = document.getElementById("zoomSlider"); // YENİ
+const zoomContainer = document.getElementById("zoomContainer"); 
+const zoomSlider = document.getElementById("zoomSlider"); 
 
 // --- KIRPMA ELEMENTLERİ ---
 const cropContainer = document.getElementById('cropContainer');
@@ -26,7 +27,7 @@ let lastScan = "";
 let lastScanTime = 0;
 const scanCooldown = 1000; // 1 saniye
 let torchOn = false;
-let currentFacingMode = "environment"; // YENİ: Başlangıç arka kamera
+let currentFacingMode = "environment"; 
 
 let scanCanvas = document.createElement("canvas");
 let scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
@@ -39,13 +40,17 @@ startBtn.onclick = () => { serialMode = false; startScanner(); };
 serialBtn.onclick = () => { serialMode = true; startScanner(); };
 flashBtn.onclick = toggleFlash;
 
-// YENİ: Kamera Yönü Değiştirme
+// YENİ: Listeyi Temizleme İşlemi
+clearBtn.onclick = () => {
+  resultList.innerHTML = "";
+  lastScan = ""; // Temizleyince aynı barkodu tekrar okuyabilmesi için sıfırlandı
+};
+
 switchBtn.onclick = () => {
   currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
   if (scanning) startScanner();
 };
 
-// OCR tetikleme
 ocrBtn.onclick = () => {
   stopCamera();
   ocrInput.click();
@@ -91,7 +96,6 @@ doCropBtn.addEventListener('click', () => {
   cropContainer.style.display = 'none';
   addResult("Kırpılan alan işleniyor... (Maksimum kalite)");
 
-  // YENİ: Hem Tesseract için blob alıyoruz, hem de indirme için Base64 dataURL
   const croppedCanvas = cropper.getCroppedCanvas({
     maxWidth: 2048,
     maxHeight: 2048,
@@ -104,17 +108,16 @@ doCropBtn.addEventListener('click', () => {
     cropper.destroy();
 
     try {
-      // Çevrimdışı Tesseract ayarları
       const result = await Tesseract.recognize(blob, 'tur', {
           logger: m => console.log(m),
-          workerPath: './worker.min.js',       // Worker JS
-          corePath: './tesseract-core.wasm.js',// Core JS + WASM
-          langPath: './'                        // dil dosyaları buradan yüklenecek
+          workerPath: './worker.min.js',
+          corePath: './tesseract-core.wasm.js',
+          langPath: './'
       });
 
       const extractedText = result.data.text.trim();
       if (extractedText) {
-        addResult("--- OCR SONUCU ---\n" + extractedText, base64ImageToSave); // YENİ: Resmi ilet
+        addResult("--- OCR SONUCU ---\n" + extractedText, base64ImageToSave); 
         beep.play().catch(() => {});
         navigator.vibrate?.(100);
       } else {
@@ -132,12 +135,12 @@ async function startScanner() {
 
   lastScan = "";
   lastScanTime = 0;
-  zoomContainer.style.display = "none"; // Başlangıçta gizle
+  zoomContainer.style.display = "none"; 
 
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        facingMode: currentFacingMode, // YENİ: Değişken kullanıldı
+        facingMode: currentFacingMode, 
         advanced: [{ focusMode: "continuous" }],
         width: { ideal: 1280 },
         height: { ideal: 720 }
@@ -148,7 +151,6 @@ async function startScanner() {
     track = stream.getVideoTracks()[0];
     scanning = true;
 
-    // YENİ: Zoom yeteneği kontrolü
     setTimeout(() => {
         const capabilities = track.getCapabilities();
         if (capabilities.zoom) {
@@ -162,7 +164,7 @@ async function startScanner() {
                 await track.applyConstraints({ advanced: [{ zoom: parseFloat(e.target.value) }] });
             };
         }
-    }, 500); // Track ayarlarının yüklenmesi için yarım saniye gecikme
+    }, 500); 
 
     video.onloadedmetadata = () => {
       video.play();
@@ -197,16 +199,15 @@ async function scanLoop() {
   scanCanvas.width = sw;
   scanCanvas.height = sh;
 
-  // YENİ: Görüntü Filtreleme (Kontrast, Parlaklık ve Siyah-Beyaz)
   scanCtx.filter = "contrast(150%) brightness(120%) grayscale(100%)";
   scanCtx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-  scanCtx.filter = "none"; // Diğer işlemleri bozmaması için sıfırla
+  scanCtx.filter = "none"; 
 
   try {
     const result = await codeReader.decodeFromCanvas(scanCanvas);
     if (result) {
       const value = result.text || result.getText();
-      const currentImageBase64 = scanCanvas.toDataURL("image/jpeg", 0.9); // YENİ: O anki başarılı kareyi al
+      const currentImageBase64 = scanCanvas.toDataURL("image/jpeg", 0.9); 
 
       if (serialMode) {
         const now = Date.now();
@@ -222,8 +223,7 @@ async function scanLoop() {
           beep.play().catch(() => {});
           navigator.vibrate?.(100);
           lastScan = value;
-          stopCamera();
-          return;
+          // YENİ: Okuyup okuyup listeye atmaya devam etmesi için stopCamera() kaldırıldı
         }
       }
     }
@@ -234,8 +234,7 @@ async function scanLoop() {
   requestAnimationFrame(scanLoop);
 }
 
-// YENİ: addResult fonksiyonuna resim parametresi (imageBase64) eklendi
-// YENİ: addResult fonksiyonu (Kopyalama ve Paylaşma eklendi)
+// --- YARDIMCI FONKSİYONLAR ---
 function addResult(text, imageBase64 = null) {
   const div = document.createElement("div");
 
@@ -249,14 +248,12 @@ function addResult(text, imageBase64 = null) {
     div.textContent = text;
   }
 
-  // Butonları yan yana tutacak kapsayıcı
   const btnGroup = document.createElement("div");
   btnGroup.style.display = "flex";
-  btnGroup.style.gap = "8px"; // Butonlar arası boşluk
+  btnGroup.style.gap = "8px"; 
   btnGroup.style.marginTop = "10px";
-  btnGroup.style.flexWrap = "wrap"; // Ekrana sığmazsa alt satıra geçsin
+  btnGroup.style.flexWrap = "wrap"; 
 
-  // 1. Resmi İndir Butonu (Eğer resim varsa)
   if (imageBase64) {
       const downloadBtn = document.createElement("button");
       downloadBtn.innerHTML = "📷 İndir";
@@ -274,7 +271,6 @@ function addResult(text, imageBase64 = null) {
       btnGroup.appendChild(downloadBtn);
   }
 
-  // 2. Metni Kopyala Butonu
   const copyBtn = document.createElement("button");
   copyBtn.innerHTML = "📋 Kopyala";
   copyBtn.className = "secondary";
@@ -292,8 +288,7 @@ function addResult(text, imageBase64 = null) {
   };
   btnGroup.appendChild(copyBtn);
 
-  // 3. Metni Paylaş Butonu (WhatsApp, Mail vb. için)
-  if (navigator.share) { // Cihaz paylaşımı destekliyorsa göster
+  if (navigator.share) { 
       const shareBtn = document.createElement("button");
       shareBtn.innerHTML = "📤 Paylaş";
       shareBtn.className = "secondary";
@@ -318,7 +313,7 @@ function addResult(text, imageBase64 = null) {
   div.appendChild(btnGroup);
 
   resultList.appendChild(div);
-  resultList.scrollTop = resultList.scrollHeight; // Yeni sonuç eklendiğinde en alta kaydır
+  resultList.scrollTop = resultList.scrollHeight; 
 }
 
 function isValidUrl(string) {
@@ -326,7 +321,6 @@ function isValidUrl(string) {
   catch (_) { return false; }
 }
 
-// Flash aç/kapat
 async function toggleFlash() {
   if (!track) return;
 
@@ -340,10 +334,9 @@ async function toggleFlash() {
   await track.applyConstraints({ advanced: [{ torch: torchOn }] });
 }
 
-// Kamera kapatma
 function stopCamera() {
   scanning = false;
   torchOn = false;
-  zoomContainer.style.display = "none"; // YENİ: Kapanınca zoom gizle
+  zoomContainer.style.display = "none"; 
   stream?.getTracks().forEach(t => t.stop());
 }
