@@ -134,31 +134,25 @@ async function startScanner() {
   zoomContainer.style.display = "none";
 
   try {
-    // 1. Kamerayı senin "Kamera Çevir" ayarlarına göre açıyoruz
+    // 1. Kameradan görüntüyü (stream) alıyoruz
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:currentFacingMode } });
-    video.srcObject = stream; track = stream.getVideoTracks()[0]; video.play();
+    
+    // Zoom ayarı için track'i kenara not ediyoruz
+    track = stream.getVideoTracks()[0];
 
-    setTimeout(() => {
-      const caps = track.getCapabilities();
-      if(caps.zoom){
-        zoomContainer.style.display="block";
-        zoomSlider.min=caps.zoom.min; zoomSlider.max=caps.zoom.max; zoomSlider.step=caps.zoom.step;
-        zoomSlider.value=track.getSettings().zoom||1;
-        zoomSlider.oninput=async e=>await track.applyConstraints({advanced:[{zoom:parseFloat(e.target.value)}]});
-      }
-    },500);
+    // DİKKAT: Buradaki video.srcObject = stream ve video.play() satırlarını SİLDİK.
+    // Çünkü aşağıdaki kod (decodeFromStream) bunu zaten yapıyor. Çakışmayı böyle engelledik.
 
-    // 2. SENİN %100 ÇALIŞAN MANTIĞIN BURADA ENTEGRE EDİLDİ
-    // (scanLoop fonksiyonunu ve kanvas çizimini sildik, ZXing kendi okuyor)
+    // 2. Stream'i ve Video elementini ZXing kütüphanesine teslim ediyoruz
+    // "Videoyu oynatmak ve okumak senin işin" diyoruz.
     codeReader.decodeFromStream(stream, video, (result, err) => {
         if (result) {
             const value = result.text;
             
-            // Senin mevcut seri okuma ve normal okuma kuralların
             if(serialMode){
               const now = Date.now();
               if(now - lastScanTime > scanCooldown){
-                addResult(value, null); // Kanvas sildiğimiz için fotoğraf kaydı yok, metin geliyor
+                addResult(value, null); 
                 beep.play().catch(()=>{}); navigator.vibrate?.(100);
                 lastScanTime = now;
               }
@@ -173,8 +167,21 @@ async function startScanner() {
         }
     });
 
+    // 3. Zoom kontrolünü kamera oturduktan sonra aktif ediyoruz
+    setTimeout(() => {
+      const caps = track.getCapabilities();
+      if(caps.zoom){
+        zoomContainer.style.display="block";
+        zoomSlider.min=caps.zoom.min; zoomSlider.max=caps.zoom.max; zoomSlider.step=caps.zoom.step;
+        zoomSlider.value=track.getSettings().zoom||1;
+        zoomSlider.oninput=async e=>await track.applyConstraints({advanced:[{zoom:parseFloat(e.target.value)}]});
+      }
+    }, 500);
+
   } catch(err){
-    alert("Kamera açılamadı: "+err.message);
+    console.error(err);
+    alert("Kamera hatası: " + err.message);
+    scanning = false;
   }
 }
 
