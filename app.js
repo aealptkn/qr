@@ -17,7 +17,7 @@ const cropContainer = document.getElementById('cropContainer');
 const imageToCrop = document.getElementById('imageToCrop');
 const doCropBtn = document.getElementById('doCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
-const rotateCropBtn = document.getElementById('rotateCropBtn'); // YENİ EKLENEN BUTON
+const rotateCropBtn = document.getElementById('rotateCropBtn');
 let cropper;
 
 // --- DEĞİŞKENLER ---
@@ -37,21 +37,20 @@ const codeReader = new ZXing.BrowserMultiFormatReader();
 const scanCanvas = document.createElement("canvas");
 const scanCtx = scanCanvas.getContext("2d", { willReadFrequently: true });
 
-// --- BUTON OLAYLARI (Aç/Kapat Toggle Mantığı) ---
+// --- BUTON OLAYLARI ---
 startBtn.onclick = () => { 
-  if (scanning && !serialMode) { stopCamera(); return; } // Açıksa Kapatır
+  if (scanning && !serialMode) { stopCamera(); return; } 
   serialMode = false; 
   startScanner(); 
 };
 
 serialBtn.onclick = () => { 
-  if (scanning && serialMode) { stopCamera(); return; } // Açıksa Kapatır
+  if (scanning && serialMode) { stopCamera(); return; } 
   serialMode = true; 
   startScanner(); 
 };
 
 flashBtn.onclick = toggleFlash;
-// LİSTEYİ SADECE TEMİZLE BUTONU SİLER
 clearBtn.onclick = () => { resultList.innerHTML = ""; lastScan = ""; }; 
 switchBtn.onclick = () => { currentFacingMode = currentFacingMode === "environment" ? "user" : "environment"; if(scanning) startScanner(); };
 ocrBtn.onclick = () => { stopCamera(); ocrInput.click(); };
@@ -76,7 +75,6 @@ cancelCropBtn.addEventListener('click', () => {
   if(cropper) cropper.destroy();
 });
 
-// Resim Döndürme
 if (rotateCropBtn) {
     rotateCropBtn.addEventListener('click', () => {
       if(cropper) cropper.rotate(90);
@@ -135,12 +133,15 @@ async function startScanner() {
   }
 }
 
-// --- TARAMA DÖNGÜSÜ (Senin Çalışan Formülün) ---
+// --- TARAMA DÖNGÜSÜ ---
 async function scanLoop() {
   if(!scanning) return;
-  requestAnimationFrame(scanLoop);
 
-  if(!video.videoWidth || !video.videoHeight) return;
+  if(!video.videoWidth || !video.videoHeight) {
+      // Video hazır değilse biraz bekle ve tekrar dene
+      setTimeout(scanLoop, 100);
+      return;
+  }
 
   const rect = scanArea.getBoundingClientRect();
   const vRect = video.getBoundingClientRect();
@@ -180,13 +181,17 @@ async function scanLoop() {
           addResult(value, currentImageBase64);
           beep.play().catch(()=>{}); navigator.vibrate?.(100);
           lastScan = value;
-          stopCamera(); // Tekli taramada kodu bulduğunda hemen kamerayı kapatır
+          stopCamera(); 
+          return; 
         }
       }
     }
   } catch(e){
     // Okuyamazsa sessiz geç
   }
+
+  // Tarama işlemini güvenli bir hızda tekrarla
+  setTimeout(scanLoop, 100);
 }
 
 // --- YARDIMCI FONKSİYONLAR ---
@@ -220,7 +225,6 @@ function addResult(text, imageBase64=null){
 
   resultList.appendChild(div);
 
-  // Kopyala ve Paylaş Butonları En Sona İtiliyor
   let globalControls = document.getElementById("globalControls");
   if (!globalControls) {
       globalControls = document.createElement("div");
