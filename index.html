@@ -21,7 +21,6 @@ body {
   background: #000;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: #fff;
-  /* Ekranı tam kapla ve esnek yapı kur */
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -31,7 +30,7 @@ body {
 #camera-container {
   position: relative;
   width: 100%;
-  flex: 0 0 33.33vh; /* Tam olarak ekranın 1/3'ü */
+  flex: 0 0 33.33vh;
   max-height: 33.33vh;
   overflow: hidden;
   background: #111;
@@ -40,7 +39,7 @@ body {
 video {
   width: 100%;
   height: 100%;
-  object-fit: cover; /* Videonun belirtilen 1/3 alana bozulmadan yayılmasını sağlar */
+  object-fit: cover;
 }
 
 .overlay {
@@ -63,7 +62,7 @@ video {
 #zoomContainer {
   display: none;
   background: #1c1c1e;
-  padding: 5px 20px; /* Biraz daraltıldı ki listeden alan çalmasın */
+  padding: 5px 20px;
   text-align: center;
   border-bottom: 1px solid #38383a;
 }
@@ -80,18 +79,18 @@ video {
 .info {
   text-align: center;
   font-size: 13px;
-  padding: 5px; /* Listeden alan çalmaması için küçültüldü */
+  padding: 5px;
   color: #8e8e93; 
 }
 
 #resultList {
-  flex: 1; /* Ekranın kalan tüm 2/3 alanını kaplar */
+  flex: 1;
   overflow-y: auto;
   background: #000; 
   padding: 10px;
   font-size: 15px;
   user-select: text; 
-  padding-bottom: 60px; /* Alttaki butonların arkasında kalmaması için boşluk */
+  padding-bottom: 60px;
 }
 
 #resultList div {
@@ -214,14 +213,6 @@ video {
 </div>
 
 <script src="./app.js"></script>
-
-<script>
-/*
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js");
-}
-*/
-</script>
 
 </body>
 </html>
