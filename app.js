@@ -317,9 +317,10 @@ function closeQrGenerator() {
 }
 
 function generateAndSaveQr() {
-    const qrContainer = document.getElementById("generatedQrCode");
+    const qrContainer = document.getElementById("generatedQrCode"); // Önce container’ı al
     qrContainer.innerHTML = ""; // Önceki QR varsa temizle
 
+    // Form verilerini al
     const name = document.getElementById("vName").value.trim();
     const title = document.getElementById("vTitle").value.trim();
     const org = document.getElementById("vOrg").value.trim();
@@ -332,9 +333,11 @@ function generateAndSaveQr() {
         return; 
     }
 
+    // Verileri tarayıcı hafızasına kaydet
     const cardData = { name, title, org, phone, email, address };
     localStorage.setItem("myCardData", JSON.stringify(cardData));
 
+    // vCard formatı oluştur
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
     vCard += `N:${name};;;\n`;
     vCard += `FN:${name}\n`;
@@ -345,38 +348,21 @@ function generateAndSaveQr() {
     if (address) vCard += `ADR:;;${address};;;;\n`;
     vCard += `END:VCARD`;
 
-    // --- OTOMATİK BOYUT VE HATA DÜZELTME SEVİYESİ ---
-    let qrSize = 180; // varsayılan
-    let correctLevel = QRCode.CorrectLevel.M;
-
-    if (vCard.length > 800 && vCard.length <= 1200) {
-        correctLevel = QRCode.CorrectLevel.Q;
-        qrSize = 240;
-    } else if (vCard.length > 1200) {
-        correctLevel = QRCode.CorrectLevel.L;
-        qrSize = 300;
-    }
-
+    // QR oluşturmayı garantiye almak için requestAnimationFrame kullan
     requestAnimationFrame(() => {
         try {
-            qrCodeObj = new QRCode(qrContainer, {
+            qrCodeObj = new QRCode(qrContainer, { 
                 text: vCard,
-                width: qrSize,
-                height: qrSize,
+                width: 300,// 180 M için 300 L
+                height: 300,// 180 M için 300 L
                 colorDark: "#000000",
                 colorLight: "#ffffff",
-                correctLevel: correctLevel
+                correctLevel: QRCode.CorrectLevel.M // küçük M Büyük L
             });
         } catch (e) {
-            // Eğer L düzeyinde bile sığmazsa
-            if (correctLevel === QRCode.CorrectLevel.L) {
-                alert(
-                    "QR kod oluşturulamadı. Veri çok uzun. Lütfen bilgileri kısaltın veya bazı alanları boş bırakın."
-                );
-            } else {
-                console.error("QR HATASI:", e);
-                alert("QR oluşturulurken hata oluştu.");
-            }
+            console.error("QR HATASI:", e);
+            alert("QR oluşturulurken hata oluştu. Lütfen metin miktarını azaltın.");
         }
     });
 }
+
