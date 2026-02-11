@@ -120,9 +120,12 @@ async function startScanner() {
 // --- TARAMA DÖNGÜSÜ (scanArea bazlı) ---
 async function scanLoop() {
   if(!scanning) return;
-  requestAnimationFrame(scanLoop);
 
-  if(!video.videoWidth || !video.videoHeight) return;
+  if(!video.videoWidth || !video.videoHeight) {
+      // Sadece video hazır değilse başa dön
+      requestAnimationFrame(scanLoop);
+      return;
+  }
 
   const rect = scanArea.getBoundingClientRect();
   const vRect = video.getBoundingClientRect();
@@ -169,29 +172,72 @@ async function scanLoop() {
   } catch(e){
     // Okuyamazsa sessiz geç
   }
+
+  // EN KRİTİK DÜZELTME: Döngü, tarama işlemi bittikten kısa bir süre sonra tekrar çağrılır. 
+  // Bu sayede RAM şişmez, kamera kapanmaz.
+  setTimeout(() => {
+    requestAnimationFrame(scanLoop);
+  }, 100);
 }
 
 // --- YARDIMCI FONKSİYONLAR ---
-function addResult(text,imageBase64=null){
+function addResult(text, imageBase64=null){
   const div=document.createElement("div");
-  if(isValidUrl(text)){
-    const a=document.createElement("a"); a.href=text; a.target="_blank"; a.textContent=text; div.appendChild(a);
-  } else div.textContent=text;
+  
+  // Metni sonradan toplu kopyalayabilmek için etiketliyoruz
+  const textSpan = document.createElement("span");
+  textSpan.className = "scanned-text";
 
-  const btnGroup=document.createElement("div"); btnGroup.style.display="flex"; btnGroup.style.gap="8px"; btnGroup.style.marginTop="10px"; btnGroup.style.flexWrap="wrap";
+  if(isValidUrl(text)){
+    const a=document.createElement("a"); a.href=text; a.target="_blank"; a.textContent=text; 
+    textSpan.appendChild(a);
+  } else {
+    textSpan.textContent=text;
+  }
+  div.appendChild(textSpan);
 
   if(imageBase64){
+    const btnGroup=document.createElement("div"); btnGroup.style.display="flex"; btnGroup.style.gap="8px"; btnGroup.style.marginTop="5px";
     const downloadBtn=document.createElement("button"); downloadBtn.innerHTML="📷 İndir"; downloadBtn.style.flex="1";
+    downloadBtn.className = "secondary"; downloadBtn.style.padding = "8px"; downloadBtn.style.borderRadius = "6px";
     downloadBtn.onclick=()=>{ const link=document.createElement("a"); link.href=imageBase64; link.download="tarama_"+Date.now()+".jpg"; link.click(); };
     btnGroup.appendChild(downloadBtn);
+    div.appendChild(document.createElement("br")); 
+    div.appendChild(btnGroup);
   }
 
-  const copyBtn=document.createElement("button"); copyBtn.innerHTML="📋 Kopyala"; copyBtn.style.flex="1";
-  copyBtn.onclick=async()=>{ try{ await navigator.clipboard.writeText(text); alert("Metin panoya kopyalandı!"); } catch{ alert("Kopyalama başarısız."); } };
-  btnGroup.appendChild(copyBtn);
+  resultList.appendChild(div);
 
-  div.appendChild(document.createElement("br")); div.appendChild(btnGroup);
-  resultList.appendChild(div); resultList.scrollTop=resultList.scrollHeight;
+  // YENİ: Kopyala butonunu her zaman listenin en sonuna sabitleme
+  let globalCopyBtn = document.getElementById("globalCopyBtn");
+  if (!globalCopyBtn) {
+      globalCopyBtn = document.createElement("button");
+      globalCopyBtn.id = "globalCopyBtn";
+      globalCopyBtn.innerHTML = "📋 Tüm Listeyi Kopyala";
+      globalCopyBtn.style.width = "100%";
+      globalCopyBtn.style.padding = "12px";
+      globalCopyBtn.style.marginTop = "15px";
+      globalCopyBtn.style.backgroundColor = "#3a3a3c";
+      globalCopyBtn.style.color = "white";
+      globalCopyBtn.style.border = "none";
+      globalCopyBtn.style.borderRadius = "8px";
+      globalCopyBtn.style.fontSize = "15px";
+      globalCopyBtn.onclick = async () => {
+          // Sadece "scanned-text" sınıfına sahip metinleri topla
+          const texts = Array.from(document.querySelectorAll('.scanned-text')).map(el => el.textContent).join('\n\n');
+          if(!texts) return;
+          try { 
+              await navigator.clipboard.writeText(texts); 
+              alert("Tüm liste kopyalandı!"); 
+          } catch { 
+              alert("Kopyalama başarısız."); 
+          }
+      };
+  }
+  // appendChild mevcut elementi alır ve listenin en altına taşır
+  resultList.appendChild(globalCopyBtn);
+
+  resultList.scrollTop=resultList.scrollHeight;
 }
 
 function isValidUrl(string){ try{ new URL(string); return true; } catch{ return false; } }
