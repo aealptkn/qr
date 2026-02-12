@@ -425,14 +425,22 @@ async function shareVCardFile() {
     }
 
     try {
+        // 1. Blob Oluştur (Standart vCard formatı)
         const blob = new Blob([globalVCardData], { type: "text/vcard" });
         
+        // 2. Dosya İsmi Belirle
         let fileName = "kartvizit.vcf";
         const nameInput = document.getElementById("vName")?.value;
         if(nameInput) fileName = nameInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
 
-        const file = new File([blob], fileName, { type: "text/vcard" });
+        // 3. Dosya Objesi Oluştur (Android için 'lastModified' ŞART)
+        const file = new File([blob], fileName, { 
+            type: "text/vcard", 
+            lastModified: Date.now() // <--- İŞTE S25 ÇÖZÜMÜ BURADA
+        });
 
+        // 4. Paylaşım Kontrolü
+        // Android'de canShare bazen yalan söyler, o yüzden try-catch bloğuna güveniyoruz.
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
                 title: 'Kartvizit Paylaş',
@@ -440,25 +448,27 @@ async function shareVCardFile() {
                 files: [file]
             });
         } else {
-            // Masaüstü vb. ise indir
-            downloadFile(blob, fileName);
-            showToast("📥 Paylaşım desteklenmiyor, dosya indirildi.");
+            // Desteklenmiyorsa hata fırlat ki catch bloğunda indirme yapsın
+            throw new Error("Tarayıcı dosya paylaşımını desteklemiyor.");
         }
     } catch (error) {
-        // İŞTE ÇÖZÜM BURASI:
-        // Eğer kullanıcı paylaşım penceresini "X" ile kapattıysa hiçbir şey yapma.
+        // Kullanıcı "Vazgeç" dediyse (AbortError), hiçbir şey yapma.
         if (error.name === 'AbortError') return;
 
-        console.error("Dosya paylaşım hatası:", error);
+        console.warn("Paylaşım başarısız, indirme deneniyor:", error);
         
-        // Blob'u yeniden oluşturup indirelim
-        const backupBlob = new Blob([globalVCardData], { type: "text/vcard" });
+        // Kullanıcıya bilgi ver
+        showToast("⚠️ Paylaşım yapılamadı, dosya indiriliyor...");
+
+        // Blob'u yeniden oluştur (Garanti olsun diye)
+        const backupBlob = new Blob([globalVCardData], { type: "text/vcard;charset=utf-8" });
+        
         let backupName = "kartvizit.vcf";
         const nInput = document.getElementById("vName")?.value;
         if(nInput) backupName = nInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
-        
+
+        // İndirmeyi başlat
         downloadFile(backupBlob, backupName);
-        showToast("⚠️ Paylaşım yapılamadı, dosya indiriliyor.");
     }
 }
 
@@ -520,19 +530,21 @@ async function shareQrImage() {
 function downloadFile(blob, fileName) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.style.display = "none"; // Görünmez yap
+    a.style.display = "none";
     a.href = url;
     a.download = fileName;
     
-    // Android'in bunu görebilmesi için body'e ekleyip tıklatmamız şart
+    // Android Webview uyumluluğu için body'e ekle
     document.body.appendChild(a);
+    
+    // Tıklamayı hemen yap
     a.click();
     
-    // İşlem bitince temizle (Hemen silme, Android algılasın diye az beklet)
+    // Temizliği biraz geç yap (Android indirmeyi algılasın diye)
     setTimeout(() => {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-    }, 100);
+    }, 200);
 }
 
 // --- PROFESYONEL BİLDİRİM (TOAST) ---
