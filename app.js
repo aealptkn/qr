@@ -422,28 +422,19 @@ async function shareVCardFile() {
         return; 
     }
 
-    // Dosya ismini hazırla
+    // 1. Dosya İsmi Hazırla
     let fileName = "kartvizit.vcf";
     const nameInput = document.getElementById("vName")?.value;
     if(nameInput) fileName = nameInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
 
-    // 1. Blob Oluştur: text/x-vcard ve utf-8 charset
-    const blob = new Blob(
-        [globalVCardData], 
-        { type: "text/x-vcard;charset=utf-8" }
-    );
+    // 2. Blob Oluştur (BOM YOK - iPhone bunu sever)
+    // Standart UTF-8 vCard
+    const blob = new Blob([globalVCardData], { type: "text/vcard" });
+    
+    // 3. Dosya Objesi
+    const file = new File([blob], fileName, { type: "text/vcard" });
 
-    // 2. Dosya Objesi: text/x-vcard ve lastModified (Tarih damgası Samsung için çok önemli)
-    const file = new File(
-        [blob], 
-        fileName, 
-        { 
-            type: "text/x-vcard",
-            lastModified: new Date().getTime()
-        }
-    );
-
-    // 3. Paylaşım Denemesi
+    // 4. Paylaşım Denemesi
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
             await navigator.share({
@@ -451,18 +442,19 @@ async function shareVCardFile() {
                 text: 'İletişim bilgilerim ektedir.',
                 files: [file]
             });
+            // Başarılı olursa buradan çıkar
         } catch (error) {
-            // Kullanıcı iptal ettiyse (AbortError) sessizce çık
+            // Kullanıcı bilerek iptal ettiyse (X'e bastıysa) dur.
             if (error.name === 'AbortError') return;
 
-            // Diğer hatalarda (S25 vb.) indirmeye geç
+            // Hata aldıysa (S25 vb.) konsola yaz ve İNDİRMEYE GEÇ
             console.warn("Paylaşım başarısız, indirme deneniyor:", error);
-            downloadFile(blob, fileName);
-            showToast("⚠️ Paylaşım desteklenmiyor, dosya indirildi.");
+            forceDownload(blob, fileName);
+            showToast("⚠️ Paylaşım menüsü açılmadı, dosya indiriliyor...");
         }
     } else {
         // Tarayıcı paylaşımı hiç desteklemiyorsa direkt indir
-        downloadFile(blob, fileName);
+        forceDownload(blob, fileName);
         showToast("📥 Dosya indirildi.");
     }
 }
