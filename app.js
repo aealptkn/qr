@@ -336,12 +336,12 @@ function closeQrGenerator() {
 
 // --- AKILLI QR OLUŞTURMA VE PAYLAŞMA ---
 // saveMode: true ise hafızaya kaydeder, false ise sadece QR üretir
-// --- AKILLI QR OLUŞTURMA VE PAYLAŞMA (Overflow Fix Versiyonu) ---
+// --- AKILLI QR OLUŞTURMA (Türkçe + İsim + Otomatik Boyutlandırma) ---
 function generateQr(saveMode) {
     const qrContainer = document.getElementById("generatedQrCode");
     const shareContainer = document.getElementById("shareQrContainer");
     
-    // Eski QR objesini temizle
+    // Temizlik
     qrContainer.innerHTML = "";
     shareContainer.style.display = "none";
     
@@ -372,9 +372,11 @@ function generateQr(saveMode) {
     }
 
     // --- vCARD OLUŞTURMA ---
-    let vCard = `BEGIN:VCARD\nVERSION:3.0\n`; //let vCard = `BEGIN:VCARD\nVERSION:2.1\n`; 
-    vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
-    vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
+    // Buraya CHARSET ekliyoruz ki telefon rehberi Türkçe karakterleri doğru göstersin
+    let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
+    vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;  // İsim (Soyad;Ad)
+    vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;     // Tam İsim
+    
     if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
     if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
     if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\n`;
@@ -398,20 +400,23 @@ function generateQr(saveMode) {
         return initials;
     }
 
+    // BU FONKSİYON ŞART (Kütüphanenin Türkçe karakterleri anlaması için)
+    function toUtf8(str) {
+        try { return unescape(encodeURIComponent(str)); } 
+        catch (e) { return str; }
+    }
+
     const levels = [QRCode.CorrectLevel.H, QRCode.CorrectLevel.Q, QRCode.CorrectLevel.M, QRCode.CorrectLevel.L];
 
-    // --- RECURSIVE QR OLUŞTURMA (AKILLI VERSİYON YÖNETİMİ) ---
-    // levelIndex: Kalite (H, Q, M, L)
-    // typeVer: QR Versiyonu (0=Oto, 4, 8, 12...40). Versiyon büyüdükçe kapasite artar.
+    // --- RECURSIVE QR OLUŞTURMA ---
     function tryGenerateLevel(levelIndex, typeVer) {
         
-        // Eğer tüm kalite seviyeleri bittiyse pes et
         if (levelIndex >= levels.length) {
             alert("QR Kod oluşturulamadı! Veri çok büyük.");
             return;
         }
 
-        // Eğer Versiyon 40'ı (Max) geçtiysek, kaliteyi düşürüp versiyonu sıfırla
+        // Limit kontrolü
         if (typeVer > 40) {
             console.warn("Versiyon limiti aşıldı, kalite düşürülüyor...");
             tryGenerateLevel(levelIndex + 1, 0); 
@@ -421,15 +426,14 @@ function generateQr(saveMode) {
         try {
             qrContainer.innerHTML = "";
             
-            // typeNumber: 0 ise otomatik algılar. Ama hata verirse biz elle artıracağız.
             new QRCode(qrContainer, {
-                text: vCard, 
+                text: toUtf8(vCard), // <--- BURASI ÇOK ÖNEMLİ: toUtf8 ile sarmalıyoruz
                 width: 256, 
                 height: 256,
                 colorDark: "#000000", 
                 colorLight: "#ffffff",
                 correctLevel: levels[levelIndex],
-                typeNumber: typeVer // BURASI KRİTİK: Elle versiyon veriyoruz
+                typeNumber: typeVer 
             });
 
             // Başarı kontrolü
@@ -456,7 +460,7 @@ function generateQr(saveMode) {
                     }
                     shareContainer.style.display = "flex";
                 } else {
-                    // Resim boşsa, versiyonu artır (Kutuyu büyüt)
+                    // Resim boşsa (sığmadıysa ama hata vermediyse)
                     console.warn("Boş resim, versiyon artırılıyor...");
                     tryGenerateLevel(levelIndex, typeVer === 0 ? 4 : typeVer + 2);
                 }
@@ -466,19 +470,18 @@ function generateQr(saveMode) {
             const errorMsg = e.message || e.toString();
             console.log(`Hata (Level ${levelIndex}, Ver ${typeVer}):`, errorMsg);
 
-            // Eğer hata "Overflow" (Sığmadı) ise KALİTEYİ BOZMA, VERSİYONU BÜYÜT
+            // Her türlü hatada (Overflow veya geçersiz karakter) versiyonu büyütüyoruz
             if (errorMsg.includes("overflow") || errorMsg.includes("code length")) {
-                // Eğer 0 (Oto) ise 4'ten başla, yoksa 2'şer artır
                 let nextVer = (typeVer === 0) ? 4 : typeVer + 2;
                 tryGenerateLevel(levelIndex, nextVer);
             } else {
-                // Başka bir hataysa (bilinmeyen), kaliteyi düşür
-                tryGenerateLevel(levelIndex + 1, 0);
+                // Bilinmeyen hatada da şansımızı deneyelim, versiyonu büyütelim
+                let nextVer = (typeVer === 0) ? 4 : typeVer + 2;
+                tryGenerateLevel(levelIndex, nextVer);
             }
         }
     }
 
-    // Başlatırken Version 0 (Oto) ile başlatıyoruz
     tryGenerateLevel(0, 0);
 }
 
