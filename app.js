@@ -293,7 +293,7 @@ function openQrGenerator() {
     stopCamera(); 
     document.getElementById("qrGeneratorContainer").style.display = "flex";
     
-    // --- DÜZELTME BURADA: Açılır açılmaz eski QR'ı temizle ---
+    // Açılır açılmaz eski QR'ı temizle (Hayalet görüntüyü engeller)
     document.getElementById("generatedQrCode").innerHTML = ""; 
     document.getElementById("shareQrContainer").style.display = "none";
     
@@ -310,8 +310,9 @@ function openQrGenerator() {
     document.getElementById("vNote").value = savedData.note || ""; 
 
     if(savedData.name) {
-      // 100ms sonra yenisini üretmeye başla
-      setTimeout(() => generateQr(true), 100); 
+      // DÜZELTME BURADA: 'true' yerine 'false' yaptık.
+      // false = "Hafızaya dokunma, soru sorma, sadece sessizce QR'ı üret ve göster."
+      setTimeout(() => generateQr(false), 100); 
     }
 }
 
