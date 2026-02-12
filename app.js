@@ -446,24 +446,32 @@ async function shareVCardFile() {
     // 3. Paylaşım Denemesi
     if (navigator.share) {
         try {
-            await navigator.share({
-                title: 'Kartvizit',
-                files: [file]
-            });
+            // Eğer canShare varsa ve files destekliyorsa onu kullan
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    title: 'Kartvizit',
+                    files: [file]
+                });
+            } else {
+                // canShare yoksa yine de share dene (bazı Androidlerde çalışıyor)
+                await navigator.share({
+                    title: 'Kartvizit',
+                    files: [file]
+                });
+            }
         } catch (error) {
-            // Kullanıcı iptal ettiyse sessizce çık
+            // Kullanıcı iptal ettiyse sessiz çık
             if (error.name === 'AbortError') return;
 
-            // Diğer hatalarda indirmeye geç
             console.warn("Paylaşım başarısız, indirme deneniyor:", error);
             downloadFile(blob, fileName);
             showToast("📥 Dosya indirildi.");
         }
     } else {
-        // Tarayıcı paylaşımı hiç desteklemiyorsa direkt indir
         downloadFile(blob, fileName);
         showToast("📥 Dosya indirildi.");
     }
+
 }
 
 // --- QR GÖRSELİ PAYLAŞMA ---
