@@ -357,6 +357,7 @@ function generateQr(saveMode) {
 
     if (!nameInput) { alert("Lütfen en azından bir isim girin."); return; }
 
+    // --- KAYIT MODU ---
     if (saveMode) {
         if (localStorage.getItem("myCardData")) {
             if (!confirm("⚠️ Eski kartvizit bilgilerinin üzerine yazılacak. Onaylıyor musun?")) return; 
@@ -365,33 +366,33 @@ function generateQr(saveMode) {
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
 
-    // --- vCARD OLUŞTURMA (CRLF \r\n DESTEKLİ) ---
-    // Samsung/Android için satır sonlarına \r ekledik.
-    let vCard = `BEGIN:VCARD\r\nVERSION:3.0\r\n`;
-    vCard += `N;CHARSET=UTF-8:${nameInput};;;\r\n`;
-    vCard += `FN;CHARSET=UTF-8:${nameInput}\r\n`;
-    
-    if (org) vCard += `ORG;CHARSET=UTF-8:${org}\r\n`;
-    if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\r\n`;
-    if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\r\n`;
-    if (workPhone) vCard += `TEL;TYPE=WORK,VOICE:${workPhone}\r\n`; 
-    if (email) vCard += `EMAIL:${email}\r\n`;
-    if (website) vCard += `URL;CHARSET=UTF-8:${website}\r\n`; 
-    if (address) vCard += `ADR;CHARSET=UTF-8:;;${address};;;;\r\n`;
-    if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\r\n`; 
-    vCard += `END:VCARD\r\n`;
+    // --- vCARD OLUŞTURMA ---
+    // Buradaki veriyi global değişkene de atıyoruz!
+    let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
+    vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
+    vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
+    if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
+    if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
+    if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\n`;
+    if (workPhone) vCard += `TEL;TYPE=WORK,VOICE:${workPhone}\n`; 
+    if (email) vCard += `EMAIL:${email}\n`;
+    if (website) vCard += `URL;CHARSET=UTF-8:${website}\n`; 
+    if (address) vCard += `ADR;CHARSET=UTF-8:;;${address};;;;\n`;
+    if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; 
+    vCard += `END:VCARD`;
 
-    // Global değişkene atıyoruz
+    // ==> KRİTİK NOKTA: Veriyi hafızaya al <==
     globalVCardData = vCard; 
 
-    // --- QR AYARLARI ---
+    // --- QR AYARLARI (EasyQRCodeJS) ---
     try {
         const options = {
-            text: vCard, 
+            text: vCard, // Kütüphane kendisi UTF-8 halleder
             width: 256, height: 256,
             colorDark: "#000000", colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.M,
-            title: "Alptekin",
+            
+            title: "Alptekin", // İmza
             titleFont: "bold 16px Arial",
             titleColor: "#000000",
             titleBackgroundColor: "#ffffff",
@@ -401,11 +402,12 @@ function generateQr(saveMode) {
 
         new QRCode(qrContainer, options);
 
+        // Görsel oluşunca butonları göster
         setTimeout(() => {
             const img = qrContainer.querySelector("canvas") || qrContainer.querySelector("img");
             if (img) {
                 img.style.width = "100%"; img.style.height = "auto";
-                shareContainer.style.display = "flex"; 
+                shareContainer.style.display = "flex"; // Butonları aç
             }
         }, 100);
 
