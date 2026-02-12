@@ -15,7 +15,7 @@ const OFFLINE_DOSYALAR = [
   './worker.min.js',
   './tesseract-core.wasm.js',
   './tesseract-core.wasm',
-  './qrcode.min.js',
+  './easy.qrcode.min.js',
   './tur.traineddata.gz' // Eğer dil dosyanın adı veya uzantısı farklıysa burayı mutlaka düzelt
 ];
 

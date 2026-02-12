@@ -272,7 +272,7 @@ async function bagimliliklariKontrolEt() {
         './worker.min.js',
         './tesseract-core.wasm.js',
         './tesseract-core.wasm', 
-        './qrcode.min.js',
+        './easy.qrcode.min.js',
         './tur.traineddata.gz'
     ];
 
@@ -336,7 +336,7 @@ function closeQrGenerator() {
 
 // --- AKILLI QR OLUŞTURMA VE PAYLAŞMA ---
 // saveMode: true ise hafızaya kaydeder, false ise sadece QR üretir
-// --- AKILLI QR OLUŞTURMA (Hafifletilmiş + Türkçe Destekli) ---
+// --- MODERN ve GÜÇLÜ QR OLUŞTURMA (EasyQRCodeJS) ---
 function generateQr(saveMode) {
     const qrContainer = document.getElementById("generatedQrCode");
     const shareContainer = document.getElementById("shareQrContainer");
@@ -371,125 +371,89 @@ function generateQr(saveMode) {
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
 
-    // --- vCARD OLUŞTURMA (Optimize Edildi) ---
-    // CHARSET etiketlerini kaldırdık (yer kaplamaması için).
-    // Aşağıdaki toUtf8 fonksiyonu sayesinde modern telefonlar bunu yine Türkçe okuyacak.
+    // --- vCARD OLUŞTURMA ---
+    // Modern kütüphane kullandığımız için CHARSET etiketlerini gönül rahatlığıyla kullanabiliriz.
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
-    vCard += `N:${nameInput};;;\n`;
-    vCard += `FN:${nameInput}\n`;
+    vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
+    vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
     
-    if (org) vCard += `ORG:${org}\n`;
-    if (title) vCard += `TITLE:${title}\n`;
+    if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
+    if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
     if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\n`;
     if (workPhone) vCard += `TEL;TYPE=WORK,VOICE:${workPhone}\n`; 
     if (email) vCard += `EMAIL:${email}\n`;
-    if (website) vCard += `URL:${website}\n`; 
-    if (address) vCard += `ADR:;;${address};;;;\n`;
-    if (note) vCard += `NOTE:${note}\n`; 
+    if (website) vCard += `URL;CHARSET=UTF-8:${website}\n`; 
+    if (address) vCard += `ADR;CHARSET=UTF-8:;;${address};;;;\n`;
+    if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; 
     vCard += `END:VCARD`;
 
-    // --- YARDIMCI FONKSİYONLAR ---
+    // --- BAŞ HARFLERİ OLUŞTURMA (Logosuz kullanım için) ---
     function getInitials(fullName) {
         if (!fullName) return "";
         const names = fullName.split(" ").filter(n => n.length > 0);
         let initials = names[0].charAt(0).toLowerCase();
-        if (names.length > 1) {
-            initials += names[names.length - 1].charAt(0).toUpperCase();
-        } else {
-             initials = initials.toUpperCase();
-        }
+        if (names.length > 1) initials += names[names.length - 1].charAt(0).toUpperCase();
+        else initials = initials.toUpperCase();
         return initials;
     }
 
-    // BU FONKSİYON ŞART: "Işık" -> Bayt koduna çevirir. 
-    // QR kütüphanesi bunu ASCII sanır ama telefona okutunca Türkçe görünür.
-    function toUtf8(str) {
-        try { return unescape(encodeURIComponent(str)); } 
-        catch (e) { return str; }
-    }
-
-    // Kalite seviyeleri (Hata durumunda kaliteyi düşürerek yer açacağız)
-    const levels = [QRCode.CorrectLevel.H, QRCode.CorrectLevel.Q, QRCode.CorrectLevel.M, QRCode.CorrectLevel.L];
-
-    // --- RECURSIVE QR OLUŞTURMA ---
-    function tryGenerateLevel(levelIndex, typeVer) {
-        
-        // Tüm kaliteleri denedik olmadıysa
-        if (levelIndex >= levels.length) {
-            console.error("Kritik Hata: Veri çok büyük, sıkıştırılamadı.");
-            alert("Veri miktarı QR Kod kapasitesini aşıyor. Lütfen not veya adres alanını kısaltın.");
-            return;
-        }
-
-        // Limit kontrolü (Versiyon 40 son sınır)
-        if (typeVer > 40) {
-            console.warn("Versiyon 40'a sığmadı, kalite düşürülüyor (L seviyesine geçiliyor)...");
-            tryGenerateLevel(levelIndex + 1, 0); 
-            return;
-        }
-
-        try {
-            qrContainer.innerHTML = "";
+    // --- MODERN QR OLUŞTURUCU ---
+    try {
+        // Yeni kütüphanenin ayarları
+        const options = {
+            text: vCard,
+            width: 256,
+            height: 256,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M, // Medium genelde yeterlidir ve sığdırır
             
-            new QRCode(qrContainer, {
-                text: toUtf8(vCard), // Veriyi güvenli moda çevirip veriyoruz
-                width: 256, 
-                height: 256,
-                colorDark: "#000000", 
-                colorLight: "#ffffff",
-                correctLevel: levels[levelIndex],
-                typeNumber: typeVer 
-            });
+            // Logoyu veya Metni doğrudan QR içine gömme özellikleri:
+            // İstersen buraya 'logo: "logo.png"' diyerek resim de koyabilirsin.
+            
+            // "Alptekin" imzasını QR'ın altına kütüphane kendisi yazar
+            title: "Alptekin", 
+            titleFont: "bold 16px Arial",
+            titleColor: "#000000",
+            titleBackgroundColor: "#ffffff",
+            titleHeight: 40, // Metin için altta yer açar
+            titleTop: 10,    // Metin boşluğu
 
-            // Başarı kontrolü (Görsel oluştu mu?)
-            setTimeout(() => {
-                const img = qrContainer.querySelector("img");
-                if (img && img.src && img.src.length > 100) {
-                    img.style.width = "100%"; 
-                    img.style.height = "100%";
-                    
-                    // -- SÜSLEMELER --
-                    const signature = document.createElement("div");
-                    signature.className = "qr-signature";
-                    signature.innerText = "Alptekin";
-                    qrContainer.appendChild(signature);
+            quietZone: 10,   // Kenar boşluğu (okumayı kolaylaştırır)
+            quietZoneColor: "rgba(0,0,0,0)"
+        };
 
-                    // Sadece Yüksek (H) kalitede logoyu koy (yer varsa)
-                    if (levels[levelIndex] === QRCode.CorrectLevel.H) {
-                        const initials = getInitials(nameInput);
-                        if (initials) {
-                            const overlay = document.createElement("div");
-                            overlay.className = "qr-initials-overlay";
-                            overlay.innerText = initials;
-                            qrContainer.appendChild(overlay);
-                        }
-                    }
-                    shareContainer.style.display = "flex";
-                } else {
-                    // Resim boşsa (teknik hata), versiyonu artır
-                    console.warn(`Boş çıktı, Versiyon artırılıyor (Şu an: ${typeVer})...`);
-                    let nextVer = (typeVer === 0) ? 4 : typeVer + 2;
-                    tryGenerateLevel(levelIndex, nextVer);
+        // QR Kodunu Çiz
+        new QRCode(qrContainer, options);
+
+        // --- İNİSİYALLER (BAŞ HARFLER) İÇİN OVERLAY ---
+        // Kütüphanenin çizimi bitince çalışır
+        setTimeout(() => {
+            const img = qrContainer.querySelector("canvas") || qrContainer.querySelector("img");
+            
+            if (img) {
+                // Canvas/Resim stilini ayarla
+                img.style.width = "100%";
+                img.style.height = "auto";
+                
+                // Baş harfleri eklemek istiyorsan yine ekleyebilirsin
+                // (Eski CSS overlay mantığın burada hala çalışır)
+                const initials = getInitials(nameInput);
+                if (initials) {
+                    const overlay = document.createElement("div");
+                    overlay.className = "qr-initials-overlay";
+                    overlay.innerText = initials;
+                    qrContainer.appendChild(overlay);
                 }
-            }, 50);
 
-        } catch (e) {
-            const errorMsg = e.message || e.toString();
-            // console.log(`Hata (Level ${levelIndex}, Ver ${typeVer}):`, errorMsg);
-
-            // "Overflow" (Taşma) hatası varsa Versiyonu büyüt
-            if (errorMsg.includes("overflow") || errorMsg.includes("code length")) {
-                let nextVer = (typeVer === 0) ? 4 : typeVer + 2;
-                tryGenerateLevel(levelIndex, nextVer);
-            } else {
-                // Başka hataysa kaliteyi düşür
-                tryGenerateLevel(levelIndex + 1, 0);
+                shareContainer.style.display = "flex";
             }
-        }
-    }
+        }, 100);
 
-    // Başlat (Otomatik Mod)
-    tryGenerateLevel(0, 0);
+    } catch (err) {
+        console.error("QR Hatası:", err);
+        alert("QR Kod oluşturulurken bir hata oluştu.");
+    }
 }
 
 async function shareQrImage() {
