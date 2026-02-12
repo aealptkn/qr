@@ -336,7 +336,7 @@ function closeQrGenerator() {
 
 // --- AKILLI QR OLUŞTURMA VE PAYLAŞMA ---
 // saveMode: true ise hafızaya kaydeder, false ise sadece QR üretir
-// --- AKILLI QR OLUŞTURMA (Türkçe + İsim + Otomatik Boyutlandırma) ---
+// --- AKILLI QR OLUŞTURMA (Hafifletilmiş + Türkçe Destekli) ---
 function generateQr(saveMode) {
     const qrContainer = document.getElementById("generatedQrCode");
     const shareContainer = document.getElementById("shareQrContainer");
@@ -371,20 +371,21 @@ function generateQr(saveMode) {
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
 
-    // --- vCARD OLUŞTURMA ---
-    // Buraya CHARSET ekliyoruz ki telefon rehberi Türkçe karakterleri doğru göstersin
+    // --- vCARD OLUŞTURMA (Optimize Edildi) ---
+    // CHARSET etiketlerini kaldırdık (yer kaplamaması için).
+    // Aşağıdaki toUtf8 fonksiyonu sayesinde modern telefonlar bunu yine Türkçe okuyacak.
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
-    vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;  // İsim (Soyad;Ad)
-    vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;     // Tam İsim
+    vCard += `N:${nameInput};;;\n`;
+    vCard += `FN:${nameInput}\n`;
     
-    if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
-    if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
+    if (org) vCard += `ORG:${org}\n`;
+    if (title) vCard += `TITLE:${title}\n`;
     if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\n`;
     if (workPhone) vCard += `TEL;TYPE=WORK,VOICE:${workPhone}\n`; 
     if (email) vCard += `EMAIL:${email}\n`;
-    if (website) vCard += `URL;CHARSET=UTF-8:${website}\n`; 
-    if (address) vCard += `ADR;CHARSET=UTF-8:;;${address};;;;\n`;
-    if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; 
+    if (website) vCard += `URL:${website}\n`; 
+    if (address) vCard += `ADR:;;${address};;;;\n`;
+    if (note) vCard += `NOTE:${note}\n`; 
     vCard += `END:VCARD`;
 
     // --- YARDIMCI FONKSİYONLAR ---
@@ -400,25 +401,29 @@ function generateQr(saveMode) {
         return initials;
     }
 
-    // BU FONKSİYON ŞART (Kütüphanenin Türkçe karakterleri anlaması için)
+    // BU FONKSİYON ŞART: "Işık" -> Bayt koduna çevirir. 
+    // QR kütüphanesi bunu ASCII sanır ama telefona okutunca Türkçe görünür.
     function toUtf8(str) {
         try { return unescape(encodeURIComponent(str)); } 
         catch (e) { return str; }
     }
 
+    // Kalite seviyeleri (Hata durumunda kaliteyi düşürerek yer açacağız)
     const levels = [QRCode.CorrectLevel.H, QRCode.CorrectLevel.Q, QRCode.CorrectLevel.M, QRCode.CorrectLevel.L];
 
     // --- RECURSIVE QR OLUŞTURMA ---
     function tryGenerateLevel(levelIndex, typeVer) {
         
+        // Tüm kaliteleri denedik olmadıysa
         if (levelIndex >= levels.length) {
-            alert("QR Kod oluşturulamadı! Veri çok büyük.");
+            console.error("Kritik Hata: Veri çok büyük, sıkıştırılamadı.");
+            alert("Veri miktarı QR Kod kapasitesini aşıyor. Lütfen not veya adres alanını kısaltın.");
             return;
         }
 
-        // Limit kontrolü
+        // Limit kontrolü (Versiyon 40 son sınır)
         if (typeVer > 40) {
-            console.warn("Versiyon limiti aşıldı, kalite düşürülüyor...");
+            console.warn("Versiyon 40'a sığmadı, kalite düşürülüyor (L seviyesine geçiliyor)...");
             tryGenerateLevel(levelIndex + 1, 0); 
             return;
         }
@@ -427,7 +432,7 @@ function generateQr(saveMode) {
             qrContainer.innerHTML = "";
             
             new QRCode(qrContainer, {
-                text: toUtf8(vCard), // <--- BURASI ÇOK ÖNEMLİ: toUtf8 ile sarmalıyoruz
+                text: toUtf8(vCard), // Veriyi güvenli moda çevirip veriyoruz
                 width: 256, 
                 height: 256,
                 colorDark: "#000000", 
@@ -436,7 +441,7 @@ function generateQr(saveMode) {
                 typeNumber: typeVer 
             });
 
-            // Başarı kontrolü
+            // Başarı kontrolü (Görsel oluştu mu?)
             setTimeout(() => {
                 const img = qrContainer.querySelector("img");
                 if (img && img.src && img.src.length > 100) {
@@ -449,6 +454,7 @@ function generateQr(saveMode) {
                     signature.innerText = "Alptekin";
                     qrContainer.appendChild(signature);
 
+                    // Sadece Yüksek (H) kalitede logoyu koy (yer varsa)
                     if (levels[levelIndex] === QRCode.CorrectLevel.H) {
                         const initials = getInitials(nameInput);
                         if (initials) {
@@ -460,28 +466,29 @@ function generateQr(saveMode) {
                     }
                     shareContainer.style.display = "flex";
                 } else {
-                    // Resim boşsa (sığmadıysa ama hata vermediyse)
-                    console.warn("Boş resim, versiyon artırılıyor...");
-                    tryGenerateLevel(levelIndex, typeVer === 0 ? 4 : typeVer + 2);
+                    // Resim boşsa (teknik hata), versiyonu artır
+                    console.warn(`Boş çıktı, Versiyon artırılıyor (Şu an: ${typeVer})...`);
+                    let nextVer = (typeVer === 0) ? 4 : typeVer + 2;
+                    tryGenerateLevel(levelIndex, nextVer);
                 }
             }, 50);
 
         } catch (e) {
             const errorMsg = e.message || e.toString();
-            console.log(`Hata (Level ${levelIndex}, Ver ${typeVer}):`, errorMsg);
+            // console.log(`Hata (Level ${levelIndex}, Ver ${typeVer}):`, errorMsg);
 
-            // Her türlü hatada (Overflow veya geçersiz karakter) versiyonu büyütüyoruz
+            // "Overflow" (Taşma) hatası varsa Versiyonu büyüt
             if (errorMsg.includes("overflow") || errorMsg.includes("code length")) {
                 let nextVer = (typeVer === 0) ? 4 : typeVer + 2;
                 tryGenerateLevel(levelIndex, nextVer);
             } else {
-                // Bilinmeyen hatada da şansımızı deneyelim, versiyonu büyütelim
-                let nextVer = (typeVer === 0) ? 4 : typeVer + 2;
-                tryGenerateLevel(levelIndex, nextVer);
+                // Başka hataysa kaliteyi düşür
+                tryGenerateLevel(levelIndex + 1, 0);
             }
         }
     }
 
+    // Başlat (Otomatik Mod)
     tryGenerateLevel(0, 0);
 }
 
