@@ -32,6 +32,7 @@ let lastScanTime = 0;
 const scanCooldown = 1000;
 let torchOn = false;
 let currentFacingMode = "environment"; 
+let globalVCardData = ""; // Oluşturulan vCard verisini burada tutacağız
 
 const beep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
 const codeReader = new ZXing.BrowserMultiFormatReader();
@@ -335,13 +336,11 @@ function closeQrGenerator() {
 }
 
 // --- AKILLI QR OLUŞTURMA VE PAYLAŞMA ---
-// saveMode: true ise hafızaya kaydeder, false ise sadece QR üretir
 // --- MODERN ve GÜÇLÜ QR OLUŞTURMA (EasyQRCodeJS) ---
 function generateQr(saveMode) {
     const qrContainer = document.getElementById("generatedQrCode");
     const shareContainer = document.getElementById("shareQrContainer");
     
-    // Temizlik
     qrContainer.innerHTML = "";
     shareContainer.style.display = "none";
     
@@ -356,27 +355,22 @@ function generateQr(saveMode) {
     const address = document.getElementById("vAddress").value.trim();
     const note = document.getElementById("vNote").value.trim(); 
 
-    if (!nameInput) { 
-        alert("Lütfen en azından bir isim girin."); 
-        return; 
-    }
+    if (!nameInput) { alert("Lütfen en azından bir isim girin."); return; }
 
     // --- KAYIT MODU ---
     if (saveMode) {
         if (localStorage.getItem("myCardData")) {
-            const onay = confirm("⚠️ DİKKAT!\n\nEski kartvizit bilgilerinizin üzerine yazılacak.\nBunu onaylıyor musunuz?");
-            if (!onay) return; 
+            if (!confirm("⚠️ Eski kartvizit bilgilerinin üzerine yazılacak. Onaylıyor musun?")) return; 
         }
         const cardData = { name: nameInput, title, org, phone, workPhone, email, website, address, note };
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
 
     // --- vCARD OLUŞTURMA ---
-    // Modern kütüphane kullandığımız için CHARSET etiketlerini gönül rahatlığıyla kullanabiliriz.
+    // Buradaki veriyi global değişkene de atıyoruz!
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
     vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
     vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
-    
     if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
     if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
     if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\n`;
@@ -387,72 +381,78 @@ function generateQr(saveMode) {
     if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; 
     vCard += `END:VCARD`;
 
-    // --- BAŞ HARFLERİ OLUŞTURMA (Logosuz kullanım için) ---
-    function getInitials(fullName) {
-        if (!fullName) return "";
-        const names = fullName.split(" ").filter(n => n.length > 0);
-        let initials = names[0].charAt(0).toLowerCase();
-        if (names.length > 1) initials += names[names.length - 1].charAt(0).toUpperCase();
-        else initials = initials.toUpperCase();
-        return initials;
-    }
+    // ==> KRİTİK NOKTA: Veriyi hafızaya al <==
+    globalVCardData = vCard; 
 
-    // --- MODERN QR OLUŞTURUCU ---
+    // --- QR AYARLARI (EasyQRCodeJS) ---
     try {
-        // Yeni kütüphanenin ayarları
         const options = {
-            text: vCard,
-            width: 256,
-            height: 256,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.M, // Medium genelde yeterlidir ve sığdırır
+            text: vCard, // Kütüphane kendisi UTF-8 halleder
+            width: 256, height: 256,
+            colorDark: "#000000", colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.M,
             
-            // Logoyu veya Metni doğrudan QR içine gömme özellikleri:
-            // İstersen buraya 'logo: "logo.png"' diyerek resim de koyabilirsin.
-            
-            // "Alptekin" imzasını QR'ın altına kütüphane kendisi yazar
-            title: "Alptekin", 
+            title: "Alptekin", // İmza
             titleFont: "bold 16px Arial",
             titleColor: "#000000",
             titleBackgroundColor: "#ffffff",
-            titleHeight: 40, // Metin için altta yer açar
-            titleTop: 10,    // Metin boşluğu
-
-            quietZone: 10,   // Kenar boşluğu (okumayı kolaylaştırır)
-            quietZoneColor: "rgba(0,0,0,0)"
+            titleHeight: 40, titleTop: 10,
+            quietZone: 10, quietZoneColor: "rgba(0,0,0,0)"
         };
 
-        // QR Kodunu Çiz
         new QRCode(qrContainer, options);
 
-        // --- İNİSİYALLER (BAŞ HARFLER) İÇİN OVERLAY ---
-        // Kütüphanenin çizimi bitince çalışır
+        // Görsel oluşunca butonları göster
         setTimeout(() => {
             const img = qrContainer.querySelector("canvas") || qrContainer.querySelector("img");
-            
             if (img) {
-                // Canvas/Resim stilini ayarla
-                img.style.width = "100%";
-                img.style.height = "auto";
-                
-                // Baş harfleri eklemek istiyorsan yine ekleyebilirsin
-                // (Eski CSS overlay mantığın burada hala çalışır)
-                const initials = getInitials(nameInput);
-                if (initials) {
-                    const overlay = document.createElement("div");
-                    overlay.className = "qr-initials-overlay";
-                    overlay.innerText = initials;
-                    qrContainer.appendChild(overlay);
-                }
-
-                shareContainer.style.display = "flex";
+                img.style.width = "100%"; img.style.height = "auto";
+                shareContainer.style.display = "flex"; // Butonları aç
             }
         }, 100);
 
     } catch (err) {
-        console.error("QR Hatası:", err);
-        alert("QR Kod oluşturulurken bir hata oluştu.");
+        console.error(err);
+        alert("QR oluşturma hatası!");
+    }
+}
+
+// --- YENİ: vCARD DOSYASI PAYLAŞMA FONKSİYONU ---
+async function shareVCardFile() {
+    if (!globalVCardData) { alert("Henüz kartvizit oluşturulmadı."); return; }
+
+    try {
+        // 1. Metni bir Dosyaya (Blob) çevir
+        const blob = new Blob([globalVCardData], { type: "text/vcard" });
+        
+        // 2. Dosya objesi oluştur (isim.vcf)
+        // Dosya ismini dinamik yapalım: Alptekin.vcf gibi
+        let fileName = "kartvizit.vcf";
+        const nameInput = document.getElementById("vName").value;
+        if(nameInput) fileName = nameInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
+
+        const file = new File([blob], fileName, { type: "text/vcard" });
+
+        // 3. Paylaşım Penceresini Aç
+        if (navigator.share && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                title: 'Kartvizit Paylaş',
+                text: 'İletişim bilgilerim ektedir.',
+                files: [file]
+            });
+        } else {
+            // Eğer paylaşım desteklenmiyorsa (PC vb.) dosyayı indir
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            alert("Paylaşım desteklenmiyor, dosya indirildi.");
+        }
+    } catch (error) {
+        console.error("Dosya paylaşım hatası:", error);
+        alert("Dosya paylaşılamadı: " + error.message);
     }
 }
 
