@@ -371,12 +371,17 @@ function generateQr(saveMode) {
     if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; 
     vCard += `END:VCARD`;
 
-    // --- YARDIMCI: BAŞ HARFLERİ BUL ---
+
+    // --- YARDIMCI: BAŞ HARFLERİ BUL (Modern Stil: aS) ---
     function getInitials(fullName) {
         if (!fullName) return "";
         const names = fullName.split(" ").filter(n => n.length > 0);
-        let initials = names[0].charAt(0).toUpperCase(); 
+        
+        // İLK HARFİ Büyük - Küçük YAP toUpperCase -> toLowerCase
+        let initials = names[0].charAt(0).toLowerCase(); 
+        
         if (names.length > 1) {
+            // SOYADIN BAŞ HARFİ BÜYÜK KALSIN (Kontrast için)
             initials += names[names.length - 1].charAt(0).toUpperCase(); 
         }
         return initials;
