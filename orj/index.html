@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Alptekin QR Barkod Tarayıcı</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#000000">
+
+<link rel="icon" type="image/png" href="./icon.png">
+<link rel="apple-touch-icon" href="./icon.png">
+
+<script type="text/javascript" src="./zxing.min.js"></script>
+<script src="./tesseract.min.js"></script>
+<link rel="stylesheet" href="./cropper.min.css" />
+<script src="./cropper.min.js"></script>
+<script src="./qrcode.min.js"></script>
+
+<style>
+body {
+  margin: 0;
+  background: #000;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  
+  /* iPhone ve Modern Androidler için Yükseklik Ayarı */
+  height: 100vh; 
+  height: 100dvh; 
+  
+  overflow: hidden; 
+}
+
+#camera-container {
+  position: relative;
+  width: 100%;
+  flex: 0 0 33.33vh; 
+  max-height: 33.33vh;
+  overflow: hidden;
+  background: #111;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; 
+}
+
+.overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+}
+
+.scan-area {
+  position: absolute;
+  width: 70%;
+  height: 35%;
+  top: 32%;
+  left: 15%;
+  border: 3px solid #00ff00;
+  box-sizing: border-box;
+}
+
+#zoomContainer {
+  display: none;
+  background: #1c1c1e;
+  padding: 5px 20px; 
+  text-align: center;
+  border-bottom: 1px solid #38383a;
+}
+#zoomContainer label {
+  font-size: 12px;
+  color: #8e8e93;
+  display: block;
+  margin-bottom: 5px;
+}
+#zoomSlider {
+  width: 100%;
+}
+
+.info {
+  text-align: center;
+  font-size: 13px;
+  padding: 5px; 
+  color: #8e8e93; 
+}
+
+#resultList {
+  flex: 1; 
+  overflow-y: auto; 
+  background: #000; 
+  padding: 10px;
+  font-size: 15px;
+  user-select: text; 
+}
+
+.mini-controls {
+  display: flex;
+  justify-content: flex-start; 
+  gap: 8px;
+  padding: 5px 10px;
+  background: #000;
+  flex-shrink: 0;
+}
+
+.mini-controls button {
+  font-size: 11px; 
+  padding: 4px 8px; 
+  background: #3a3a3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mini-controls #miniShareBtn {
+  background: #0a84ff;
+}
+
+#resultList div {
+  padding: 10px 6px;
+  border-bottom: 0.5px solid #38383a; 
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+#resultList a {
+  color: #0a84ff; 
+  text-decoration: none;
+}
+
+#cropContainer {
+  display: none; 
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #000;
+  z-index: 9999;
+  flex-direction: column;
+}
+
+#cropImageWrapper {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+#imageToCrop {
+  max-width: 100%;
+}
+
+.crop-controls {
+    display: flex;
+    justify-content: center; /* Ortaya hizala */
+    gap: 15px; /* Araları açık olsun */
+    padding: 15px;
+    background: #000; /* Arka plan siyah */
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    z-index: 10000; /* En üstte */
+}
+
+.crop-controls button {
+    font-size: 12px; /* Küçük font (Mini buton gibi) */
+    padding: 8px 16px; /* Kibar boyut */
+    border-radius: 6px; /* Hafif oval */
+    border: none;
+    cursor: pointer;
+    color: white;
+    font-weight: 500;
+    transition: opacity 0.2s;
+}
+
+.crop-controls button:active {
+    opacity: 0.7;
+}
+
+/* Renkler */
+#cancelCropBtn { background: #3a3a3c; } /* Gri (İptal) */
+#rotateCropBtn { background: #3a3a3c; } /* Gri (Döndür) */
+#doCropBtn { background: #0a84ff; }     /* Mavi (Kırp ve Tara) */
+
+.cropper-bg { background: #111; }
+.cropper-modal { opacity: 0.8; }
+.cropper-view-box, .cropper-face { outline: 2px solid #0a84ff; }
+.cropper-point { background-color: #0a84ff; }
+
+.controls {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0; 
+  background: rgba(28, 28, 30, 0.95); 
+  z-index: 1000;
+  /* S25 ve iPhone alt çizgisi için güvenli boşluk */
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  flex-shrink: 0; 
+}
+
+.controls button {
+  flex: 1;
+  margin: 0 2px;
+  padding: 8px 0;
+  font-size: 20px; 
+  border: none;
+  border-radius: 10px;
+  background: #0a84ff;
+  color: white;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.controls button:active {
+  opacity: 0.7;
+}
+
+/* KARTVİZİT MODAL STİLİ (GÜNCELLENDİ) */
+#qrGeneratorContainer {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+    z-index: 2000;
+    flex-direction: column;
+    overflow-y: auto;
+}
+.qr-header {
+    padding: 20px;
+    background: #1c1c1e;
+    text-align: center;
+    border-bottom: 1px solid #38383a;
+    padding-top: calc(10px + env(safe-area-inset-top)); 
+}
+.qr-display {
+    background: white;
+    padding: 20px;
+    margin: 20px auto;
+    border-radius: 10px;
+    width: 200px; height: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.qr-form {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding-bottom: 100px;
+}
+.qr-form input {
+    padding: 12px;
+    background: #1c1c1e;
+    border: 1px solid #38383a;
+    color: white;
+    border-radius: 8px;
+    font-size: 16px;
+}
+.qr-close-btn {
+    position: absolute;
+    top: 15px; right: 15px;
+    background: #3a3a3c;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin-top: env(safe-area-inset-top);
+}
+
+/* YENİ BUTON STİLLERİ */
+.qr-action-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+.qr-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: bold;
+    color: white;
+}
+.btn-save { background: #0a84ff; } /* Mavi */
+.btn-gen { background: #3a3a3c; }  /* Gri */
+
+/* QR Paylaş Butonu */
+#shareQrContainer {
+    display: none;
+    justify-content: center;
+    margin-top: -10px;
+    margin-bottom: 10px;
+}
+.share-icon-btn {
+    background: transparent;
+    color: #0a84ff;
+    border: 1px solid #0a84ff;
+    padding: 5px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* QR Kodun kapsayıcısını referans noktası yapıyoruz */
+#generatedQrCode {
+    position: relative; /* Ortaya element koyabilmek için şart */
+    /* Diğer stiller aynen kalıyor... */
+}
+
+/* Ortaya gelecek Baş Harf Logosu */
+.qr-initials-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Tam merkeze hizala */
+    width: 60px;  /* Logonun genişliği */
+    height: 60px; /* Logonun yüksekliği */
+    background-color: #ffffff; /* Arkadaki QR noktalarını kapatmak için beyaz zemin */
+    border-radius: 50%; /* Yuvarlak yap */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 900; /* Kalın yazı */
+    font-size: 28px; /* ad soyad Başharfler büyük ise 24px - adın başharf küçük soyad büyük 28px  */
+    color: #000000; /* Siyah harfler */
+    border: 4px solid #ffffff; /* Beyaz kalın çerçeve (padding gibi görünür) */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Hafif gölge ver ki havada dursun */
+    z-index: 10; /* En üstte görünsün */
+}
+
+/* QR Sağ Alt İmza */
+.qr-signature {
+    position: absolute;
+    bottom: 3px;  /* Alttan boşluk */
+    right: 5px;   /* Sağdan boşluk */
+    font-size: 9px; /* Çok küçük, kibar font */
+    color: #444; /* Çok koyu gri, siyah gibi bağırmasın */
+    font-family: sans-serif;
+    pointer-events: none; /* Tıklamaları engelle */
+    z-index: 15; /* En üstte dursun */
+    font-weight: 600; /* Hafif kalın */
+    letter-spacing: 0.5px; /* Harf aralığı */
+    opacity: 0.8; /* Hafif şeffaf */
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="camera-container">
+  <video id="video" autoplay playsinline></video>
+  <div class="overlay"></div>
+  <div class="scan-area" id="scanArea"></div>
+</div>
+
+<div id="zoomContainer">
+    <label for="zoomSlider">🔍 Yakınlaştırma (Zoom)</label>
+    <input type="range" id="zoomSlider" min="1" max="2" step="0.1" value="1">
+</div>
+
+<div id="resultList"></div>
+
+<div class="mini-controls">
+  <button id="miniCopyBtn">📋 Kopyala</button>
+  <button id="miniShareBtn" style="display: none;">📤 Paylaş</button>
+</div>
+
+<div class="controls">
+  <button id="startBtn" title="QR / Barkod Tarama">🔍</button>
+  <button id="serialBtn" title="Seri Tarama">📋</button>
+  <button id="ocrBtn" title="OCR">📝</button>
+  <button id="switchBtn" title="Kamera Çevir">🔄</button>
+  <button id="flashBtn" title="Flash Aç/Kapat">⚡</button>
+  <button id="createQrBtn" title="Kartvizit Oluştur">🆔</button>
+  <button id="clearBtn" title="Listeyi Temizle">🗑️</button>
+</div>
+
+<input type="file" id="ocrInput" accept="image/*" style="display: none;" />
+
+<div id="qrGeneratorContainer">
+    <div class="qr-header">
+        <h3>Kartvizit Oluştur</h3>
+        <button class="qr-close-btn" onclick="closeQrGenerator()">Kapat</button>
+    </div>
+    
+    <div class="qr-display" id="generatedQrCode"></div>
+    
+    <div id="shareQrContainer">
+        <button class="share-icon-btn" onclick="shareQrImage()">
+            📤 Görseli Paylaş
+        </button>
+    </div>
+
+    <div class="qr-form">
+        <input type="text" id="vName" placeholder="Ad Soyad *" />
+        <input type="text" id="vTitle" placeholder="Ünvan / Meslek" />
+        <input type="text" id="vOrg" placeholder="Şirket Adı" />
+        
+        <input type="tel" id="vPhone" placeholder="Cep Telefonu (+90...)" />
+        <input type="tel" id="vWorkPhone" placeholder="İş Telefonu (+90...)" />
+        
+        <input type="email" id="vEmail" placeholder="E-Posta Adresi" />
+        
+        <input type="url" id="vWebsite" placeholder="Web Sitesi (https://...)" />
+        <input type="text" id="vAddress" placeholder="Adres" />
+        <input type="text" id="vNote" placeholder="Not (Opsiyonel)" />
+        
+        <div class="qr-action-row">
+            <button class="qr-btn btn-save" onclick="generateQr(true)">💾 Kaydet ve Üret</button>
+            <button class="qr-btn btn-gen" onclick="generateQr(false)">⚡ Sadece Üret</button>
+        </div>
+    </div>
+</div>
+
+<div id="cropContainer">
+    <div id="cropImageWrapper">
+        <img id="imageToCrop" src="" alt="Kırpılacak Resim">
+    </div>
+    <div class="crop-controls">
+        <button id="cancelCropBtn" class="secondary">İptal</button>
+        <button id="rotateCropBtn" class="secondary">Döndür</button>
+        <button id="doCropBtn">Kırp ve Tara</button>
+    </div>
+</div>
+
+<script src="./app.js"></script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js");
+}
+</script>
+
+</body>
+</html>

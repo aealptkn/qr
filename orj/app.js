@@ -123,7 +123,7 @@ doCropBtn.addEventListener('click', async () => {
   },'image/jpeg',0.95);
 });
 
-// --- KAMERA TARAYICI (S25 ve Yüksek Çözünürlük Fixli) ---
+// --- KAMERA TARAYICI ---
 async function startScanner() {
   if(scanning) stopCamera();
   scanning = true;
@@ -131,22 +131,8 @@ async function startScanner() {
   zoomContainer.style.display = "none";
 
   try {
-    // BURASI GÜNCELLENDİ: ideal: 4096 diyerek S25'i ana lense zorluyoruz
-    const constraints = {
-        video: {
-            facingMode: currentFacingMode,
-            width: { ideal: 4096 }, 
-            height: { ideal: 2160 }, 
-            advanced: [{ focusMode: "continuous" }] 
-        }
-    };
-
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:currentFacingMode } });
     track = stream.getVideoTracks()[0];
-
-    // Kamera açıldıktan sonra özellikleri kontrol et (Debug için konsola yaz)
-    const settings = track.getSettings();
-    console.log(`Kamera Açıldı: ${settings.width}x${settings.height}`);
 
     codeReader.decodeFromStream(stream, video, (result, err) => {
         if (result) {
@@ -340,9 +326,8 @@ function generateQr(saveMode) {
     const qrContainer = document.getElementById("generatedQrCode");
     const shareContainer = document.getElementById("shareQrContainer");
     
-    // ... Değişken tanımlamaları (nameInput, title vb.) SENİN KODUNLA AYNI KALSIN ...
+    // Yeni Alanları Oku
     const nameInput = document.getElementById("vName").value.trim();
-    // (Diğer input okumaları buraya...)
     const title = document.getElementById("vTitle").value.trim();
     const org = document.getElementById("vOrg").value.trim();
     const phone = document.getElementById("vPhone").value.trim();
@@ -357,7 +342,9 @@ function generateQr(saveMode) {
         return; 
     }
 
+    // --- GÜVENLİK KONTROLÜ BURADA ---
     if (saveMode) {
+        // Hafızada daha önce kayıtlı veri var mı?
         if (localStorage.getItem("myCardData")) {
             const onay = confirm("⚠️ DİKKAT!\n\nEski kartvizit bilgilerinizin üzerine yazılacak.\nBunu onaylıyor musunuz?");
             if (!onay) return; 
@@ -366,11 +353,11 @@ function generateQr(saveMode) {
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
 
+    // Temizle ve Gizle
     qrContainer.innerHTML = ""; 
     shareContainer.style.display = "none"; 
 
-    // --- ÖNEMLİ: TÜRKÇE KARAKTER İÇİN vCard FORMATI ---
-    // Charset'i UTF-8 olarak her alanda belirttik, bu İ harfinin H olmasını engeller.
+    // --- GELİŞMİŞ vCARD OLUŞTURMA ---
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
     vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
     vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
@@ -384,12 +371,17 @@ function generateQr(saveMode) {
     if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; 
     vCard += `END:VCARD`;
 
-    // İmzayı ve logoyu hazırlayan yardımcı fonksiyonlar (senin kodunla aynı)
+
+    // --- YARDIMCI: BAŞ HARFLERİ BUL (Modern Stil: aS) ---
     function getInitials(fullName) {
         if (!fullName) return "";
         const names = fullName.split(" ").filter(n => n.length > 0);
+        
+        // İLK HARFİ Büyük - Küçük YAP toUpperCase -> toLowerCase
         let initials = names[0].charAt(0).toLowerCase(); 
+        
         if (names.length > 1) {
+            // SOYADIN BAŞ HARFİ BÜYÜK KALSIN (Kontrast için)
             initials += names[names.length - 1].charAt(0).toUpperCase(); 
         }
         return initials;
@@ -405,28 +397,27 @@ function generateQr(saveMode) {
 
         try {
             qrContainer.innerHTML = ""; 
-            
-            // BU FONKSİYON KRİTİK: qrcode.js'e UTF-8 byte'larını doğru gönderir
-            function toUtf8(str) { 
-                return unescape(encodeURIComponent(str)); 
-            }
+            function toUtf8(str) { return unescape(encodeURIComponent(str)); }
 
             qrCodeObj = new QRCode(qrContainer, {
-                text: toUtf8(vCard), // Burayı kesinlikle toUtf8 ile sarmalıyoruz
+                text: toUtf8(vCard),
                 width: 256, height: 256,
                 colorDark: "#000000", colorLight: "#ffffff",
                 correctLevel: levels[index]
             });
 
-            // --- Görsel düzenlemeler (İmza vb.) ---
+            // --- BAŞARILI OLURSA ---
             const img = qrContainer.querySelector("img");
             if(img) { img.style.width = "100%"; img.style.height = "100%"; }
 
+            // --- YENİ: İMZA EKLEME (HER SEVİYEDE ÇALIŞIR) ---
             const signature = document.createElement("div");
             signature.className = "qr-signature";
             signature.innerText = "Alptekin";
             qrContainer.appendChild(signature);
+            // -----------------------------------------
 
+            // Sadece H seviyesindeyse ORTAYA BAŞ HARF logosu ekle
             if (levels[index] === QRCode.CorrectLevel.H) {
                 const initials = getInitials(nameInput);
                 if (initials) {
@@ -437,16 +428,8 @@ function generateQr(saveMode) {
                 }
             }
 
-            // QR kütüphanesinin render etmesi için kısa bir bekleme (bazen img hemen oluşmaz)
             setTimeout(() => {
-                const generatedImg = qrContainer.querySelector("img");
-                if(generatedImg && generatedImg.src) {
-                     shareContainer.style.display = "flex";
-                } else {
-                    // Eğer resim oluşmadıysa (teknik hata), bir alt seviyeyi dene
-                    console.warn("Resim oluşmadı, seviye düşürülüyor...");
-                    tryGenerateLevel(index + 1);
-                }
+                if(qrContainer.querySelector("img")) shareContainer.style.display = "flex";
             }, 300);
 
         } catch (e) {
