@@ -418,9 +418,11 @@ function generateQr(saveMode) {
 }
 
 // --- YENİ: vCARD DOSYASI PAYLAŞMA FONKSİYONU ---
-// --- DÜZELTİLMİŞ vCARD PAYLAŞMA ---
 async function shareVCardFile() {
-    if (!globalVCardData) { alert("Henüz kartvizit oluşturulmadı."); return; }
+    if (!globalVCardData) { 
+        showToast("⚠️ Henüz kartvizit oluşturulmadı."); 
+        return; 
+    }
 
     try {
         const blob = new Blob([globalVCardData], { type: "text/vcard" });
@@ -440,7 +442,7 @@ async function shareVCardFile() {
         } else {
             // Masaüstü vb. ise indir
             downloadFile(blob, fileName);
-            alert("Dosya indirildi.");
+            showToast("📥 Paylaşım desteklenmiyor, dosya indirildi.");
         }
     } catch (error) {
         // İŞTE ÇÖZÜM BURASI:
@@ -448,23 +450,23 @@ async function shareVCardFile() {
         if (error.name === 'AbortError') return;
 
         console.error("Dosya paylaşım hatası:", error);
-        // Gerçek bir hataysa (Permission denied vb.) kullanıcıya bildir veya indir
-        alert("Paylaşım yapılamadı, dosya indiriliyor.");
-        // Blob'u yeniden oluşturup indirelim (blob scope dışı kalmasın diye)
+        
+        // Blob'u yeniden oluşturup indirelim
         const backupBlob = new Blob([globalVCardData], { type: "text/vcard" });
         let backupName = "kartvizit.vcf";
         const nInput = document.getElementById("vName")?.value;
         if(nInput) backupName = nInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
+        
         downloadFile(backupBlob, backupName);
+        showToast("⚠️ Paylaşım yapılamadı, dosya indiriliyor.");
     }
 }
 
-// ---  QR GÖRSELİ PAYLAŞMA ---
+// --- QR GÖRSELİ PAYLAŞMA ---
 async function shareQrImage() {
     const qrContainer = document.getElementById("generatedQrCode");
     
     // EasyQRCodeJS genelde CANVAS üretir, eski kütüphane IMG üretirdi.
-    // İkisini de kontrol ediyoruz:
     const canvas = qrContainer.querySelector("canvas");
     const img = qrContainer.querySelector("img");
     
@@ -484,7 +486,7 @@ async function shareQrImage() {
     }
 
     if (!blob) { 
-        alert("QR kodu henüz oluşmadı veya bulunamadı."); 
+        showToast("⚠️ QR kodu bulunamadı.");
         return; 
     }
 
@@ -502,24 +504,47 @@ async function shareQrImage() {
         } else {
             // Desteklemiyorsa indir
             downloadFile(blob, "kartvizit_qr.png");
+            showToast("📥 Görsel indirildi.");
         }
     } catch (error) {
         // Kullanıcı vazgeçtiyse (AbortError) hata verme, sessiz kal.
         if (error.name !== 'AbortError') {
              console.warn("Paylaşım hatası, indirme deneniyor...", error);
              downloadFile(blob, "kartvizit_qr.png");
+             showToast("📥 Görsel indirildi.");
         }
     }
 }
 
-// Yardımcı indirme fonksiyonu (Kod tekrarını önlemek için)
+// --- GÜÇLENDİRİLMİŞ İNDİRME FONKSİYONU (Android Fix) ---
 function downloadFile(blob, fileName) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+    a.style.display = "none"; // Görünmez yap
     a.href = url;
     a.download = fileName;
+    
+    // Android'in bunu görebilmesi için body'e ekleyip tıklatmamız şart
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    
+    // İşlem bitince temizle (Hemen silme, Android algılasın diye az beklet)
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 100);
+}
+
+// --- PROFESYONEL BİLDİRİM (TOAST) ---
+function showToast(message) {
+    const toast = document.getElementById("toast-notification");
+    if (!toast) return; // Eğer HTML'e eklemediysen hata vermesin
+    
+    toast.textContent = message;
+    toast.className = "show";
+    
+    // 3 saniye sonra kaybolsun
+    setTimeout(() => { 
+        toast.className = toast.className.replace("show", ""); 
+    }, 3000);
 }

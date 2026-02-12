@@ -351,6 +351,32 @@ video {
     opacity: 0.8; /* Hafif şeffaf */
 }
 
+/* --- APP TARZI BİLDİRİM (TOAST) --- */
+#toast-notification {
+    visibility: hidden;
+    min-width: 250px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 50px; /* Yuvarlak hatlar */
+    padding: 16px;
+    position: fixed;
+    z-index: 9999;
+    left: 50%;
+    bottom: 30px;
+    transform: translateX(-50%);
+    font-size: 14px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    opacity: 0;
+    transition: opacity 0.5s, bottom 0.5s;
+}
+
+#toast-notification.show {
+    visibility: visible;
+    opacity: 1;
+    bottom: 50px; /* Hafif yukarı kayma efekti */
+}
+
 </style>
 </head>
 
@@ -444,5 +470,6 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 
+<div id="toast-notification"></div>
 </body>
 </html>
