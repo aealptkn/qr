@@ -293,19 +293,24 @@ function openQrGenerator() {
     stopCamera(); 
     document.getElementById("qrGeneratorContainer").style.display = "flex";
     
-    // Hafızadan bilgileri getir (Yeni alanlar dahil)
+    // --- DÜZELTME BURADA: Açılır açılmaz eski QR'ı temizle ---
+    document.getElementById("generatedQrCode").innerHTML = ""; 
+    document.getElementById("shareQrContainer").style.display = "none";
+    
+    // Hafızadan bilgileri getir
     const savedData = JSON.parse(localStorage.getItem("myCardData") || "{}");
     document.getElementById("vName").value = savedData.name || "";
     document.getElementById("vTitle").value = savedData.title || "";
     document.getElementById("vOrg").value = savedData.org || "";
     document.getElementById("vPhone").value = savedData.phone || "";
-    document.getElementById("vWorkPhone").value = savedData.workPhone || ""; // YENİ
+    document.getElementById("vWorkPhone").value = savedData.workPhone || ""; 
     document.getElementById("vEmail").value = savedData.email || "";
-    document.getElementById("vWebsite").value = savedData.website || ""; // YENİ
+    document.getElementById("vWebsite").value = savedData.website || ""; 
     document.getElementById("vAddress").value = savedData.address || "";
-    document.getElementById("vNote").value = savedData.note || ""; // YENİ
+    document.getElementById("vNote").value = savedData.note || ""; 
 
     if(savedData.name) {
+      // 100ms sonra yenisini üretmeye başla
       setTimeout(() => generateQr(true), 100); 
     }
 }
@@ -315,51 +320,57 @@ function closeQrGenerator() {
 }
 
 // --- AKILLI QR OLUŞTURMA VE PAYLAŞMA ---
+// saveMode: true ise hafızaya kaydeder, false ise sadece QR üretir
 function generateQr(saveMode) {
     const qrContainer = document.getElementById("generatedQrCode");
     const shareContainer = document.getElementById("shareQrContainer");
     
-    qrContainer.innerHTML = ""; 
-    shareContainer.style.display = "none"; 
-
     // Yeni Alanları Oku
     const nameInput = document.getElementById("vName").value.trim();
     const title = document.getElementById("vTitle").value.trim();
     const org = document.getElementById("vOrg").value.trim();
     const phone = document.getElementById("vPhone").value.trim();
-    const workPhone = document.getElementById("vWorkPhone").value.trim(); // YENİ
+    const workPhone = document.getElementById("vWorkPhone").value.trim(); 
     const email = document.getElementById("vEmail").value.trim();
-    const website = document.getElementById("vWebsite").value.trim(); // YENİ
+    const website = document.getElementById("vWebsite").value.trim(); 
     const address = document.getElementById("vAddress").value.trim();
-    const note = document.getElementById("vNote").value.trim(); // YENİ
+    const note = document.getElementById("vNote").value.trim(); 
 
-    if (!nameInput) { alert("Lütfen isim girin."); return; }
+    if (!nameInput) { 
+        alert("Lütfen en azından bir isim girin."); 
+        return; 
+    }
 
+    // --- GÜVENLİK KONTROLÜ BURADA ---
     if (saveMode) {
-        // Yeni alanları da kaydet
+        // Hafızada daha önce kayıtlı veri var mı?
+        if (localStorage.getItem("myCardData")) {
+            const onay = confirm("⚠️ DİKKAT!\n\nEski kartvizit bilgilerinizin üzerine yazılacak.\nBunu onaylıyor musunuz?");
+            if (!onay) return; 
+        }
         const cardData = { name: nameInput, title, org, phone, workPhone, email, website, address, note };
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
+
+    // Temizle ve Gizle
+    qrContainer.innerHTML = ""; 
+    shareContainer.style.display = "none"; 
 
     // --- GELİŞMİŞ vCARD OLUŞTURMA ---
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
     vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
     vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
-    
     if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
     if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
-    
-    // Telefonlar: Cep ve İş ayrımı
     if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\n`;
-    if (workPhone) vCard += `TEL;TYPE=WORK,VOICE:${workPhone}\n`; // YENİ
-    
+    if (workPhone) vCard += `TEL;TYPE=WORK,VOICE:${workPhone}\n`; 
     if (email) vCard += `EMAIL:${email}\n`;
-    if (website) vCard += `URL;CHARSET=UTF-8:${website}\n`; // YENİ
+    if (website) vCard += `URL;CHARSET=UTF-8:${website}\n`; 
     if (address) vCard += `ADR;CHARSET=UTF-8:;;${address};;;;\n`;
-    if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; // YENİ
-    
+    if (note) vCard += `NOTE;CHARSET=UTF-8:${note}\n`; 
     vCard += `END:VCARD`;
 
+    // --- YARDIMCI: BAŞ HARFLERİ BUL ---
     function getInitials(fullName) {
         if (!fullName) return "";
         const names = fullName.split(" ").filter(n => n.length > 0);
@@ -389,9 +400,18 @@ function generateQr(saveMode) {
                 correctLevel: levels[index]
             });
 
+            // --- BAŞARILI OLURSA ---
             const img = qrContainer.querySelector("img");
             if(img) { img.style.width = "100%"; img.style.height = "100%"; }
 
+            // --- YENİ: İMZA EKLEME (HER SEVİYEDE ÇALIŞIR) ---
+            const signature = document.createElement("div");
+            signature.className = "qr-signature";
+            signature.innerText = "Alptekin";
+            qrContainer.appendChild(signature);
+            // -----------------------------------------
+
+            // Sadece H seviyesindeyse ORTAYA BAŞ HARF logosu ekle
             if (levels[index] === QRCode.CorrectLevel.H) {
                 const initials = getInitials(nameInput);
                 if (initials) {
