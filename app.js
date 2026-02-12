@@ -336,6 +336,7 @@ function closeQrGenerator() {
 
 // --- AKILLI QR OLUŞTURMA VE PAYLAŞMA ---
 // saveMode: true ise hafızaya kaydeder, false ise sadece QR üretir
+// --- AKILLI QR OLUŞTURMA VE PAYLAŞMA (Overflow Fix Versiyonu) ---
 function generateQr(saveMode) {
     const qrContainer = document.getElementById("generatedQrCode");
     const shareContainer = document.getElementById("shareQrContainer");
@@ -370,7 +371,7 @@ function generateQr(saveMode) {
         localStorage.setItem("myCardData", JSON.stringify(cardData));
     }
 
-    // --- vCARD OLUŞTURMA (UTF-8 Destekli) ---
+    // --- vCARD OLUŞTURMA ---
     let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
     vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
     vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
@@ -388,70 +389,68 @@ function generateQr(saveMode) {
     function getInitials(fullName) {
         if (!fullName) return "";
         const names = fullName.split(" ").filter(n => n.length > 0);
-        let initials = names[0].charAt(0).toLowerCase(); // İlk harf küçük
+        let initials = names[0].charAt(0).toLowerCase();
         if (names.length > 1) {
-            initials += names[names.length - 1].charAt(0).toUpperCase(); // Soyad büyük
+            initials += names[names.length - 1].charAt(0).toUpperCase();
         } else {
-             initials = initials.toUpperCase(); // Tek isimse büyük olsun
+             initials = initials.toUpperCase();
         }
         return initials;
     }
 
-    // UTF-8 Dönüşüm Fonksiyonu (Kritik Nokta)
     function toUtf8(str) {
-        try {
-            return unescape(encodeURIComponent(str));
-        } catch (e) {
-            console.error("UTF-8 dönüşüm hatası:", e);
-            return str; // Hata olursa ham halini dene
-        }
+        try { return unescape(encodeURIComponent(str)); } 
+        catch (e) { return str; }
     }
 
-    // QR Kalite Seviyeleri (Yüksekten Düşüğe)
     const levels = [QRCode.CorrectLevel.H, QRCode.CorrectLevel.Q, QRCode.CorrectLevel.M, QRCode.CorrectLevel.L];
 
-    // --- RECURSIVE QR OLUŞTURMA ---
-    function tryGenerateLevel(index) {
-        // Eğer tüm seviyeleri denedik ve olmadıysa dur.
-        if (index >= levels.length) {
-            console.error("Tüm seviyeler denendi, başarısız.");
-            alert("QR Kod oluşturulamadı! İçerik çok uzun veya desteklenmeyen karakter var.");
-            qrContainer.innerHTML = "<p style='color:red'>Hata!</p>";
+    // --- RECURSIVE QR OLUŞTURMA (AKILLI VERSİYON YÖNETİMİ) ---
+    // levelIndex: Kalite (H, Q, M, L)
+    // typeVer: QR Versiyonu (0=Oto, 4, 8, 12...40). Versiyon büyüdükçe kapasite artar.
+    function tryGenerateLevel(levelIndex, typeVer) {
+        
+        // Eğer tüm kalite seviyeleri bittiyse pes et
+        if (levelIndex >= levels.length) {
+            alert("QR Kod oluşturulamadı! Veri çok büyük.");
+            return;
+        }
+
+        // Eğer Versiyon 40'ı (Max) geçtiysek, kaliteyi düşürüp versiyonu sıfırla
+        if (typeVer > 40) {
+            console.warn("Versiyon limiti aşıldı, kalite düşürülüyor...");
+            tryGenerateLevel(levelIndex + 1, 0); 
             return;
         }
 
         try {
-            // Önce temizle
             qrContainer.innerHTML = "";
-
-            // QR Oluştur (Try-Catch içinde olması çok önemli)
+            
+            // typeNumber: 0 ise otomatik algılar. Ama hata verirse biz elle artıracağız.
             new QRCode(qrContainer, {
-                text: toUtf8(vCard), // "ı" harfi burada işleniyor
+                text: toUtf8(vCard),
                 width: 256, 
                 height: 256,
                 colorDark: "#000000", 
                 colorLight: "#ffffff",
-                correctLevel: levels[index]
+                correctLevel: levels[levelIndex],
+                typeNumber: typeVer // BURASI KRİTİK: Elle versiyon veriyoruz
             });
 
-            // Başarılı olup olmadığını kontrol etmek için kısa bir gecikme
+            // Başarı kontrolü
             setTimeout(() => {
                 const img = qrContainer.querySelector("img");
-                
-                // Eğer resim oluştuysa ve src'si varsa (base64 dolduysa)
                 if (img && img.src && img.src.length > 100) {
                     img.style.width = "100%"; 
                     img.style.height = "100%";
                     
-                    // -- GÖRSEL SÜSLEMELER --
-                    // 1. İmza
+                    // -- SÜSLEMELER --
                     const signature = document.createElement("div");
                     signature.className = "qr-signature";
                     signature.innerText = "Alptekin";
                     qrContainer.appendChild(signature);
 
-                    // 2. Logo (Sadece H seviyesinde ve yer varsa)
-                    if (levels[index] === QRCode.CorrectLevel.H) {
+                    if (levels[levelIndex] === QRCode.CorrectLevel.H) {
                         const initials = getInitials(nameInput);
                         if (initials) {
                             const overlay = document.createElement("div");
@@ -460,25 +459,32 @@ function generateQr(saveMode) {
                             qrContainer.appendChild(overlay);
                         }
                     }
-
-                    // Paylaş butonunu göster
                     shareContainer.style.display = "flex";
                 } else {
-                    // Resim etiketi var ama içi boşsa, bir alt seviyeye geç
-                    console.warn(`Seviye ${index} görsel oluşturamadı, düşürülüyor...`);
-                    tryGenerateLevel(index + 1);
+                    // Resim boşsa, versiyonu artır (Kutuyu büyüt)
+                    console.warn("Boş resim, versiyon artırılıyor...");
+                    tryGenerateLevel(levelIndex, typeVer === 0 ? 4 : typeVer + 2);
                 }
             }, 50);
 
         } catch (e) {
-            // Kütüphane hata fırlatırsa yakala ve seviye düşür
-            console.warn(`Seviye ${index} hatası:`, e);
-            tryGenerateLevel(index + 1);
+            const errorMsg = e.message || e.toString();
+            console.log(`Hata (Level ${levelIndex}, Ver ${typeVer}):`, errorMsg);
+
+            // Eğer hata "Overflow" (Sığmadı) ise KALİTEYİ BOZMA, VERSİYONU BÜYÜT
+            if (errorMsg.includes("overflow") || errorMsg.includes("code length")) {
+                // Eğer 0 (Oto) ise 4'ten başla, yoksa 2'şer artır
+                let nextVer = (typeVer === 0) ? 4 : typeVer + 2;
+                tryGenerateLevel(levelIndex, nextVer);
+            } else {
+                // Başka bir hataysa (bilinmeyen), kaliteyi düşür
+                tryGenerateLevel(levelIndex + 1, 0);
+            }
         }
     }
 
-    // Başlat
-    tryGenerateLevel(0);
+    // Başlatırken Version 0 (Oto) ile başlatıyoruz
+    tryGenerateLevel(0, 0);
 }
 
 async function shareQrImage() {
