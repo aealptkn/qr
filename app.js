@@ -14,7 +14,6 @@ const zoomContainer = document.getElementById("zoomContainer");
 const zoomSlider = document.getElementById("zoomSlider"); 
 const miniCopyBtn = document.getElementById("miniCopyBtn");
 const miniShareBtn = document.getElementById("miniShareBtn");
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
 // --- KIRPMA ELEMENTLERİ ---
 const cropContainer = document.getElementById('cropContainer');
@@ -209,7 +208,7 @@ function addResult(text, imageBase64=null){
       
       saveContactBtn.onclick = () => {
           // vCard verisini bir dosya (blob) haline getir
-          const blob = new Blob([text], { type: "text/x-vcard;charset=utf-8" });
+          const blob = new Blob([text], { type: "text/vcard" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
@@ -445,52 +444,51 @@ async function shareVCardFile() {
     );
 
     // 3. Paylaşım Denemesi
-    if (navigator.share) {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
-
-            if (isIOS && navigator.canShare) {
-                // 🍎 iPhone → Dosya olarak paylaş
-                const blob = new Blob(
-                    [globalVCardData],
-                    { type: "text/x-vcard;charset=utf-8" }
-                );
-
-                const file = new File(
-                    [blob],
-                    "kartvizit.vcf",
-                    { type: "text/x-vcard" }
-                );
-
-                if (navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        title: 'Kartvizit',
-                        files: [file]
-                    });
-                } else {
-                    // iOS ama files desteklemiyorsa text fallback
-                    await navigator.share({
-                        title: 'Kartvizit',
-                        text: globalVCardData
-                    });
-                }
-
-            } else {
-                // 🤖 Android → Direkt TEXT paylaş
-                await navigator.share({
-                    title: 'Kartvizit',
-                    text: globalVCardData
-                });
-            }
-
+            await navigator.share({
+                title: 'Kartvizit',
+                text: 'İletişim bilgilerim ektedir.',
+                files: [file]
+            });
         } catch (error) {
-            if (error.name !== 'AbortError') {
-                console.warn("Paylaşım başarısız:", error);
-                showToast("⚠️ Paylaşım başarısız.");
-            }
+            // Kullanıcı iptal ettiyse (AbortError) sessizce çık
+            if (error.name === 'AbortError') return;
+
+            // Diğer hatalarda (S25 vb.) indirmeye geç
+            console.warn("Paylaşım başarısız, indirme deneniyor:", error);
+            downloadFile(blob, fileName);
+            showToast("⚠️ Paylaşım desteklenmiyor, dosya indirildi.");
         }
     } else {
-        showToast("⚠️ Bu cihaz paylaşımı desteklemiyor.");
+        // Tarayıcı paylaşımı hiç desteklemiyorsa direkt indir
+        downloadFile(blob, fileName);
+        showToast("📥 Dosya indirildi.");
     }
+}
+
+// --- ZORLA İNDİRME FONKSİYONU (En Basit ve Güvenli Yöntem) ---
+function forceDownload(blob, fileName) {
+    // Blob URL oluştur
+    const url = window.URL.createObjectURL(blob);
+    
+    // Sanal link oluştur
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = url;
+    a.download = fileName;
+    
+    // Mutlaka body'e ekle (Firefox ve Android için şart)
+    document.body.appendChild(a);
+    
+    // Tıkla
+    a.click();
+    
+    // Temizlik (Android'in dosyayı kapması için 2 saniye bekle)
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 2000);
 }
 
 // --- QR GÖRSELİ PAYLAŞMA ---
