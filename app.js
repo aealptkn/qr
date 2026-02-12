@@ -424,55 +424,65 @@ async function shareVCardFile() {
         return; 
     }
 
-    try {
-        // 1. Android İçin Türkçe Karakter İmzası (BOM) Ekle
-        // "\uFEFF" eklemezsek bazı Android telefonlar dosyayı bozuk görebilir.
-        const vCardBlob = new Blob(["\uFEFF" + globalVCardData], { type: "text/vcard;charset=utf-8" });
+    // 1. Dosya İsmi Hazırla
+    let fileName = "kartvizit.vcf";
+    const nameInput = document.getElementById("vName")?.value;
+    if(nameInput) fileName = nameInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
 
-        // 2. Dosya İsmi
-        let fileName = "kartvizit.vcf";
-        const nameInput = document.getElementById("vName")?.value;
-        if(nameInput) fileName = nameInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
+    // 2. Blob Oluştur (BOM YOK - iPhone bunu sever)
+    // Standart UTF-8 vCard
+    const blob = new Blob([globalVCardData], { type: "text/vcard" });
+    
+    // 3. Dosya Objesi
+    const file = new File([blob], fileName, { type: "text/vcard" });
 
-        // 3. Dosya Objesi (Android için lastModified şart)
-        const file = new File([vCardBlob], fileName, { 
-            type: "text/vcard", 
-            lastModified: new Date().getTime() 
-        });
+    // 4. Paylaşım Denemesi
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                title: 'Kartvizit',
+                text: 'İletişim bilgilerim ektedir.',
+                files: [file]
+            });
+            // Başarılı olursa buradan çıkar
+        } catch (error) {
+            // Kullanıcı bilerek iptal ettiyse (X'e bastıysa) dur.
+            if (error.name === 'AbortError') return;
 
-        // 4. Paylaşım Denemesi
-        // Android'de share api bazen dosya desteği vermez, o yüzden kontrol ediyoruz
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({
-                    title: 'Kartvizit',
-                    text: 'İletişim bilgilerim ektedir.',
-                    files: [file]
-                });
-            } catch (shareError) {
-                if (shareError.name !== 'AbortError') {
-                    throw shareError; // Gerçek hataysa catch bloğuna gönder
-                }
-            }
-        } else {
-            // Desteklenmiyorsa (Masaüstü vb.) direkt indir
-            downloadFile(vCardBlob, fileName);
-            showToast("📥 Dosya indirildi.");
+            // Hata aldıysa (S25 vb.) konsola yaz ve İNDİRMEYE GEÇ
+            console.warn("Paylaşım başarısız, indirme deneniyor:", error);
+            forceDownload(blob, fileName);
+            showToast("⚠️ Paylaşım menüsü açılmadı, dosya indiriliyor...");
         }
-
-    } catch (error) {
-        console.warn("Paylaşım başarısız, manuel indirme deneniyor:", error);
-        
-        // HATA DURUMUNDA YEDEK PLAN (MANUEL İNDİRME)
-        const backupBlob = new Blob(["\uFEFF" + globalVCardData], { type: "text/vcard;charset=utf-8" });
-        
-        let backupName = "kartvizit.vcf";
-        const nInput = document.getElementById("vName")?.value;
-        if(nInput) backupName = nInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
-
-        downloadFile(backupBlob, backupName);
-        showToast("⚠️ Paylaşım desteklenmiyor, dosya indirildi.");
+    } else {
+        // Tarayıcı paylaşımı hiç desteklemiyorsa direkt indir
+        forceDownload(blob, fileName);
+        showToast("📥 Dosya indirildi.");
     }
+}
+
+// --- ZORLA İNDİRME FONKSİYONU (En Basit ve Güvenli Yöntem) ---
+function forceDownload(blob, fileName) {
+    // Blob URL oluştur
+    const url = window.URL.createObjectURL(blob);
+    
+    // Sanal link oluştur
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = url;
+    a.download = fileName;
+    
+    // Mutlaka body'e ekle (Firefox ve Android için şart)
+    document.body.appendChild(a);
+    
+    // Tıkla
+    a.click();
+    
+    // Temizlik (Android'in dosyayı kapması için 2 saniye bekle)
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 2000);
 }
 
 // --- QR GÖRSELİ PAYLAŞMA ---
