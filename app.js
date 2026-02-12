@@ -372,9 +372,9 @@ function generateQr(saveMode) {
     }
 
     // --- vCARD OLUŞTURMA ---
-    let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
-    vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
-    vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
+    let vCard = `BEGIN:VCARD\nVERSION:2.1\n`; //let vCard = `BEGIN:VCARD\nVERSION:3.0\n`;
+    //vCard += `N;CHARSET=UTF-8:${nameInput};;;\n`;
+    //vCard += `FN;CHARSET=UTF-8:${nameInput}\n`;
     if (org) vCard += `ORG;CHARSET=UTF-8:${org}\n`;
     if (title) vCard += `TITLE;CHARSET=UTF-8:${title}\n`;
     if (phone) vCard += `TEL;TYPE=CELL,VOICE:${phone}\n`;
@@ -396,11 +396,6 @@ function generateQr(saveMode) {
              initials = initials.toUpperCase();
         }
         return initials;
-    }
-
-    function toUtf8(str) {
-        try { return unescape(encodeURIComponent(str)); } 
-        catch (e) { return str; }
     }
 
     const levels = [QRCode.CorrectLevel.H, QRCode.CorrectLevel.Q, QRCode.CorrectLevel.M, QRCode.CorrectLevel.L];
@@ -428,7 +423,7 @@ function generateQr(saveMode) {
             
             // typeNumber: 0 ise otomatik algılar. Ama hata verirse biz elle artıracağız.
             new QRCode(qrContainer, {
-                text: toUtf8(vCard),
+                text: vCard,
                 width: 256, 
                 height: 256,
                 colorDark: "#000000", 
