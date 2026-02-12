@@ -418,64 +418,108 @@ function generateQr(saveMode) {
 }
 
 // --- YENİ: vCARD DOSYASI PAYLAŞMA FONKSİYONU ---
+// --- DÜZELTİLMİŞ vCARD PAYLAŞMA ---
 async function shareVCardFile() {
     if (!globalVCardData) { alert("Henüz kartvizit oluşturulmadı."); return; }
 
     try {
-        // 1. Metni bir Dosyaya (Blob) çevir
         const blob = new Blob([globalVCardData], { type: "text/vcard" });
         
-        // 2. Dosya objesi oluştur (isim.vcf)
-        // Dosya ismini dinamik yapalım: Alptekin.vcf gibi
         let fileName = "kartvizit.vcf";
-        const nameInput = document.getElementById("vName").value;
+        const nameInput = document.getElementById("vName")?.value;
         if(nameInput) fileName = nameInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
 
         const file = new File([blob], fileName, { type: "text/vcard" });
 
-        // 3. Paylaşım Penceresini Aç
-        if (navigator.share && navigator.canShare({ files: [file] })) {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
                 title: 'Kartvizit Paylaş',
                 text: 'İletişim bilgilerim ektedir.',
                 files: [file]
             });
         } else {
-            // Eğer paylaşım desteklenmiyorsa (PC vb.) dosyayı indir
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-            alert("Paylaşım desteklenmiyor, dosya indirildi.");
+            // Masaüstü vb. ise indir
+            downloadFile(blob, fileName);
+            alert("Dosya indirildi.");
         }
     } catch (error) {
+        // İŞTE ÇÖZÜM BURASI:
+        // Eğer kullanıcı paylaşım penceresini "X" ile kapattıysa hiçbir şey yapma.
+        if (error.name === 'AbortError') return;
+
         console.error("Dosya paylaşım hatası:", error);
-        alert("Dosya paylaşılamadı: " + error.message);
+        // Gerçek bir hataysa (Permission denied vb.) kullanıcıya bildir veya indir
+        alert("Paylaşım yapılamadı, dosya indiriliyor.");
+        // Blob'u yeniden oluşturup indirelim (blob scope dışı kalmasın diye)
+        const backupBlob = new Blob([globalVCardData], { type: "text/vcard" });
+        let backupName = "kartvizit.vcf";
+        const nInput = document.getElementById("vName")?.value;
+        if(nInput) backupName = nInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
+        downloadFile(backupBlob, backupName);
     }
 }
 
+// ---  QR GÖRSELİ PAYLAŞMA ---
 async function shareQrImage() {
     const qrContainer = document.getElementById("generatedQrCode");
-    const img = qrContainer.querySelector("img"); 
+    
+    // EasyQRCodeJS genelde CANVAS üretir, eski kütüphane IMG üretirdi.
+    // İkisini de kontrol ediyoruz:
+    const canvas = qrContainer.querySelector("canvas");
+    const img = qrContainer.querySelector("img");
+    
+    let blob = null;
 
-    if (!img || !img.src) { alert("QR kodu henüz oluşmadı."); return; }
+    if (canvas) {
+        // Canvas varsa Blob'a çevir
+        blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    } else if (img && img.src) {
+        // Resim varsa (base64) Blob'a çevir
+        try {
+            const response = await fetch(img.src);
+            blob = await response.blob();
+        } catch (e) {
+            console.error("Görsel dönüştürme hatası:", e);
+        }
+    }
 
+    if (!blob) { 
+        alert("QR kodu henüz oluşmadı veya bulunamadı."); 
+        return; 
+    }
+
+    // Dosyayı hazırla
+    const file = new File([blob], "kartvizit_qr.png", { type: "image/png" });
+
+    // Paylaşmayı Dene
     try {
-        const blob = await (await fetch(img.src)).blob();
-        const file = new File([blob], "kartvizit_qr.png", { type: "image/png" });
-
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
                 title: 'QR Kartvizit',
-                text: 'İletişim bilgilerim ektedir.',
+                text: 'QR kodum ektedir.',
                 files: [file]
             });
         } else {
-            alert("Cihazınız görsel paylaşımını desteklemiyor.");
+            // Desteklemiyorsa indir
+            downloadFile(blob, "kartvizit_qr.png");
         }
     } catch (error) {
-        console.log("Paylaşım hatası:", error);
+        // Kullanıcı vazgeçtiyse (AbortError) hata verme, sessiz kal.
+        if (error.name !== 'AbortError') {
+             console.warn("Paylaşım hatası, indirme deneniyor...", error);
+             downloadFile(blob, "kartvizit_qr.png");
+        }
     }
+}
+
+// Yardımcı indirme fonksiyonu (Kod tekrarını önlemek için)
+function downloadFile(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
