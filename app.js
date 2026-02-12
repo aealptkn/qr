@@ -14,6 +14,7 @@ const zoomContainer = document.getElementById("zoomContainer");
 const zoomSlider = document.getElementById("zoomSlider"); 
 const miniCopyBtn = document.getElementById("miniCopyBtn");
 const miniShareBtn = document.getElementById("miniShareBtn");
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
 // --- KIRPMA ELEMENTLERİ ---
 const cropContainer = document.getElementById('cropContainer');
@@ -446,32 +447,50 @@ async function shareVCardFile() {
     // 3. Paylaşım Denemesi
     if (navigator.share) {
         try {
-            // Eğer canShare varsa ve files destekliyorsa onu kullan
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    title: 'Kartvizit',
-                    files: [file]
-                });
+
+            if (isIOS && navigator.canShare) {
+                // 🍎 iPhone → Dosya olarak paylaş
+                const blob = new Blob(
+                    [globalVCardData],
+                    { type: "text/x-vcard;charset=utf-8" }
+                );
+
+                const file = new File(
+                    [blob],
+                    "kartvizit.vcf",
+                    { type: "text/x-vcard" }
+                );
+
+                if (navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: 'Kartvizit',
+                        files: [file]
+                    });
+                } else {
+                    // iOS ama files desteklemiyorsa text fallback
+                    await navigator.share({
+                        title: 'Kartvizit',
+                        text: globalVCardData
+                    });
+                }
+
             } else {
-                // canShare yoksa yine de share dene (bazı Androidlerde çalışıyor)
+                // 🤖 Android → Direkt TEXT paylaş
                 await navigator.share({
                     title: 'Kartvizit',
-                    files: [file]
+                    text: globalVCardData
                 });
             }
-        } catch (error) {
-            // Kullanıcı iptal ettiyse sessiz çık
-            if (error.name === 'AbortError') return;
 
-            console.warn("Paylaşım başarısız, indirme deneniyor:", error);
-            downloadFile(blob, fileName);
-            showToast("📥 Dosya indirildi.");
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.warn("Paylaşım başarısız:", error);
+                showToast("⚠️ Paylaşım başarısız.");
+            }
         }
     } else {
-        downloadFile(blob, fileName);
-        showToast("📥 Dosya indirildi.");
+        showToast("⚠️ Bu cihaz paylaşımı desteklemiyor.");
     }
-
 }
 
 // --- QR GÖRSELİ PAYLAŞMA ---
