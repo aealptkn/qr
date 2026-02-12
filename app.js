@@ -425,50 +425,53 @@ async function shareVCardFile() {
     }
 
     try {
-        // 1. Blob Oluştur (Standart vCard formatı)
-        const blob = new Blob([globalVCardData], { type: "text/vcard" });
-        
-        // 2. Dosya İsmi Belirle
+        // 1. Android İçin Türkçe Karakter İmzası (BOM) Ekle
+        // "\uFEFF" eklemezsek bazı Android telefonlar dosyayı bozuk görebilir.
+        const vCardBlob = new Blob(["\uFEFF" + globalVCardData], { type: "text/vcard;charset=utf-8" });
+
+        // 2. Dosya İsmi
         let fileName = "kartvizit.vcf";
         const nameInput = document.getElementById("vName")?.value;
         if(nameInput) fileName = nameInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
 
-        // 3. Dosya Objesi Oluştur (Android için 'lastModified' ŞART)
-        const file = new File([blob], fileName, { 
+        // 3. Dosya Objesi (Android için lastModified şart)
+        const file = new File([vCardBlob], fileName, { 
             type: "text/vcard", 
-            lastModified: Date.now() // <--- İŞTE S25 ÇÖZÜMÜ BURADA
+            lastModified: new Date().getTime() 
         });
 
-        // 4. Paylaşım Kontrolü
-        // Android'de canShare bazen yalan söyler, o yüzden try-catch bloğuna güveniyoruz.
+        // 4. Paylaşım Denemesi
+        // Android'de share api bazen dosya desteği vermez, o yüzden kontrol ediyoruz
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                title: 'Kartvizit Paylaş',
-                text: 'İletişim bilgilerim ektedir.',
-                files: [file]
-            });
+            try {
+                await navigator.share({
+                    title: 'Kartvizit',
+                    text: 'İletişim bilgilerim ektedir.',
+                    files: [file]
+                });
+            } catch (shareError) {
+                if (shareError.name !== 'AbortError') {
+                    throw shareError; // Gerçek hataysa catch bloğuna gönder
+                }
+            }
         } else {
-            // Desteklenmiyorsa hata fırlat ki catch bloğunda indirme yapsın
-            throw new Error("Tarayıcı dosya paylaşımını desteklemiyor.");
+            // Desteklenmiyorsa (Masaüstü vb.) direkt indir
+            downloadFile(vCardBlob, fileName);
+            showToast("📥 Dosya indirildi.");
         }
+
     } catch (error) {
-        // Kullanıcı "Vazgeç" dediyse (AbortError), hiçbir şey yapma.
-        if (error.name === 'AbortError') return;
-
-        console.warn("Paylaşım başarısız, indirme deneniyor:", error);
+        console.warn("Paylaşım başarısız, manuel indirme deneniyor:", error);
         
-        // Kullanıcıya bilgi ver
-        showToast("⚠️ Paylaşım yapılamadı, dosya indiriliyor...");
-
-        // Blob'u yeniden oluştur (Garanti olsun diye)
-        const backupBlob = new Blob([globalVCardData], { type: "text/vcard;charset=utf-8" });
+        // HATA DURUMUNDA YEDEK PLAN (MANUEL İNDİRME)
+        const backupBlob = new Blob(["\uFEFF" + globalVCardData], { type: "text/vcard;charset=utf-8" });
         
         let backupName = "kartvizit.vcf";
         const nInput = document.getElementById("vName")?.value;
         if(nInput) backupName = nInput.replace(/[^a-zA-Z0-9]/g, "_") + ".vcf";
 
-        // İndirmeyi başlat
         downloadFile(backupBlob, backupName);
+        showToast("⚠️ Paylaşım desteklenmiyor, dosya indirildi.");
     }
 }
 
@@ -534,17 +537,15 @@ function downloadFile(blob, fileName) {
     a.href = url;
     a.download = fileName;
     
-    // Android Webview uyumluluğu için body'e ekle
     document.body.appendChild(a);
-    
-    // Tıklamayı hemen yap
     a.click();
     
-    // Temizliği biraz geç yap (Android indirmeyi algılasın diye)
+    // ÇÖZÜM BURADA: Temizliği 100ms yerine 5000ms (5 saniye) sonra yapıyoruz.
+    // Samsung'un indirme yöneticisinin dosyayı yakalaması için ona süre tanıyoruz.
     setTimeout(() => {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-    }, 200);
+    }, 5000);
 }
 
 // --- PROFESYONEL BİLDİRİM (TOAST) ---
